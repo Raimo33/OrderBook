@@ -22,6 +22,7 @@ OrderBook::OrderBook(void)
 
 OrderBook::~OrderBook(void) {}
 
+//TODO undefined behavior if the book is empty
 HOT inline std::pair<uint32_t, uint32_t> OrderBook::getBestPrices(void) const
 {
   return std::make_pair(level_arrays[BID].back().first, level_arrays[ASK].back().first);

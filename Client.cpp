@@ -21,8 +21,9 @@ last edited: 2025-03-08 21:24:05
 #include "Client.hpp"
 #include "macros.hpp"
 
-Client::Client(const std::string_view ip_str, const uint16_t port) : 
-  tcp_state(DISCONNECTED)
+Client::Client(const std::string_view ip_str, const uint16_t port) :
+  tcp_sequence(0),
+  udp_sequence(0)
 {
   std::memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
@@ -71,7 +72,6 @@ void Client::init_tcp_socket(void)
   setsockopt(tcp_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
 
   connect(tcp_fd, (struct sockaddr *)&addr, sizeof(addr));
-  tcp_state = CONNECTED;
 }
 
 void Client::init_epoll(void)
@@ -88,71 +88,59 @@ void Client::init_epoll(void)
 
 void Client::run(void)
 {
-  constexpr uint16_t buffer_size = 1500;
-  alignas(64) char buffer[buffer_size];
-
   struct epoll_event events[2];
-  void (Client::*handlers[2])(uint32_t, char*, uint16_t) = {&Client::handle_tcp_event, &Client::handle_udp_event};
+  void (Client::*handlers[2])(uint32_t) = {&Client::handle_tcp_event, &Client::handle_udp_event};
 
   while (true)
   {
-    int nfds = epoll_wait(epoll_fd, events, 2, -1);
+    uint8_t nfds = epoll_wait(epoll_fd, events, 2, -1);
 
-    for (int i = 0; i < nfds; i++)
+    for (uint8_t i = 0; i < nfds; i++)
     {
       const struct epoll_event ev = events[i];
+      if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
+        handle_error(ev.data.fd, ev.events);
       
       const uint8_t idx = (ev.data.fd == udp_fd);
-      (this->*handlers[idx])(ev.events, buffer, buffer_size);
+      (this->*handlers[idx])(ev.events);
     }
   }
 }
 
-inline void Client::handle_udp_event(const uint32_t ev, char *buffer, const uint16_t buffer_size)
+inline void Client::handle_udp_event(const uint32_t ev)
 {
-  if (ev & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
-  {
-    handle_error(udp_fd, ev);
-    return;
-  }
-
   //TODO maybe dont even care about EPOLLOUT or EPOLLIN.
 }
 
-void Client::handle_tcp_event(const uint32_t ev, char *buffer, const uint16_t buffer_size)
+void Client::handle_tcp_event(const uint32_t ev)
 {
-  if (ev & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
+  switch (tcp_sequence)
   {
-    handle_error(tcp_fd, ev);
-    return;
-  }
-
-  switch (state)
-  {
-    case DISCONNECTED:
-      throw std::runtime_error("TCP socket not initialized");
+    case 0:
+      sequence += send_login_request(ev);
       break;
-    case CONNECTED:
-      send_login_request(ev);
-      state = ORDERBOOK_REQUESTED;
-      break;
-    case ORDERBOOK_REQUESTED:
-      receive_orderbook(ev, buffer, buffer_size);
-      state = ORDERBOOK_RECEIVED;
-      break;
-    case ORDERBOOK_RECEIVED:
-      send_logout_request(ev);
-      state = DISCONNECTED;
-      break;
+    case 1:
+      if (UNLIKELY(!recv_login_response(ev)))
+        return;
+      sequence++;
+    case 2:
+      if (UNLIKELY(!recv_snapshot(ev)))
+        return;
+      sequence++;
+    case 3:
+      if (UNLIKELY(!send_logout_request(ev)))
+        return;
+      sequence++;
+    case 4:
+      sequence = 0;
     default:
       UNREACHABLE;
   }
 }
 
-void Client::free_udp_socket(void)
+void Client::send_login_request(const uint32_t ev)
 {
-  setsockopt(udp_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
-  close(udp_fd);
+  //TODO move semantics to move ownership of the string to the buffer
 }
 
 NEVER_INLINE void handle_error(const int fd, const uint32_t ev)
@@ -160,6 +148,12 @@ NEVER_INLINE void handle_error(const int fd, const uint32_t ev)
   std::ostringstream oss;
   oss << "Error on file descriptor " << fd << " with event " << ev;
   throw std::runtime_error(oss.str());
+}
+
+void Client::free_udp_socket(void)
+{
+  setsockopt(udp_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
+  close(udp_fd);
 }
 
 void Client::free_tcp_socket(void)

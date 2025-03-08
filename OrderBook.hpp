@@ -15,7 +15,7 @@ class OrderBook
 
     void addOrder(const Side side, const int32_t price, const uint64_t volume);
     void removeOrder(const Side side, const int32_t price, const uint64_t volume);
-    void executeOrder(const Side side, const uint64_t volume); //TODO it is identifies by a INT_MIN price
+    void executeOrder(const Side side, uint64_t volume); //TODO it is identifies by a INT_MIN price
 
   private:
     typedef std::pair<uint32_t, uint64_t> PriceLevel;
