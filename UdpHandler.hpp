@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 
 class OrderBook;
 
@@ -19,5 +20,6 @@ class UdpHandler
     int fd;
     struct ip_mreq mreq;
     OrderBook& order_book;
+    std::chrono::time_point<std::chrono::steady_clock> last_received;
     //TODO simple queue circular buffer for packets O(1) insert and remove, O(nlog n) sorting. prefixed size (MAX_PACKETS_IN_FLIGHT)
 };

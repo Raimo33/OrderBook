@@ -5,22 +5,24 @@
 #include <chrono>
 
 #include "TcpHandler.hpp"
+#include "utils.hpp"
 
 using namespace std::chrono_literals;
 
 TcpHandler::TcpHandler(OrderBook& order_book) :
   state(DISCONNECTED),
-  order_book(order_book)
+  order_book(order_book),
+  last_outgoing(std::chrono::steady_clock::now()),
+  last_incoming(std::chrono::steady_clock::now()),
+  glimpse_addresses({utils::parse_address_from_env("GLIMPSE1"), utils::parse_address_from_env("GLIMPSE2")})
 {
-  //TODO parse ips and port
-
   fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
   constexpr int enable = 1;
   setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable));
   setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
 
-  connect(fd, reinterpret_cast<struct sockaddr *>(&glimpse_address), sizeof(glimpse_address));
+  connect(fd, reinterpret_cast<struct sockaddr *>(&glimpse_addresses[0]), sizeof(glimpse_addresses[0]));
   state = CONNECTED;
 }
 

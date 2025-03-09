@@ -18,8 +18,6 @@ int main(void)
 {
   try
   {
-    
-
     Client client();
     client.run();
   }
