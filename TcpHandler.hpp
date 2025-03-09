@@ -1,5 +1,7 @@
 #pragma once
 
+#include <chrono>
+
 class OrderBook;
 
 class TcpHandler
@@ -8,12 +10,15 @@ class TcpHandler
     TcpHandler(struct sockaddr_in& addr, OrderBook& order_book);
     ~TcpHandler(void);
 
+    enum State : uint8_t { DISCONNECTED, CONNECTED, LOGIN_SENT, LOGIN_RECEIVED, SNAPSHOT_RECEIVED, LOGGED_OUT };
+    
     void request_snapshot(void);
+    State get_state(void) const;
 
   private:
-    enum state_t : uint8_t { DISCONNECTED, LOGIN_SENT, LOGIN_RECEIVED, SNAPSHOT_RECEIVED, LOGGED_OUT };
-
     int fd;
-    state_t state;
+    State state;
     OrderBook& order_book;
+    std::chrono::time_point<std::chrono::steady_clock> last_outgoing;
+    std::chrono::time_point<std::chrono::steady_clock> last_incoming;
 };

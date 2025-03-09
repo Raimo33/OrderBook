@@ -14,15 +14,22 @@ last edited: 2025-03-08 21:24:05
 
 #include "Client.hpp"
 
-int main(void)
+int main(int argc, char* argv[])
 {
   try
   {
-    Client client("239.194.41.1", 21001);
+    if (argc != 3)
+      throw std::runtime_error("Usage: ./program <IP> <PORT>");
+
+    std::string ip(argv[1]);
+    uint16_t port = std::stoi(argv[2]);
+
+    Client client(ip, port);
     client.run();
   }
   catch (const std::exception& e)
   {
-    std::cerr << e.what() << std::endl;
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
   }
 }

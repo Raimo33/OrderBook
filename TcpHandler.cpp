@@ -1,8 +1,12 @@
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <unistd.h>
+#include <stdexcept>
+#include <chrono>
 
 #include "TcpHandler.hpp"
+
+using namespace std::chrono_literals;
 
 TcpHandler::TcpHandler(struct sockaddr_in& addr, OrderBook& order_book) :
   state(DISCONNECTED),
@@ -15,6 +19,7 @@ TcpHandler::TcpHandler(struct sockaddr_in& addr, OrderBook& order_book) :
   setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
 
   connect(fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr));
+  state = CONNECTED;
 }
 
 TcpHandler::~TcpHandler(void)
@@ -24,7 +29,35 @@ TcpHandler::~TcpHandler(void)
 
 void TcpHandler::request_snapshot(void)
 {
-  //TODO state machine, blocking because the separation is already done
+  switch (state)
+  {
+    case CONNECTED:
+      state += send_login();
+    break;
+      case LOGIN_SENT:
+      state += recv_login(); //if they receive a heartbeat they just update the last_incoming time
+    break;
+      case LOGIN_RECEIVED:
+      state += recv_snapshot(); //if they receive a heartbeat they just update the last_incoming time
+    break;
+      case SNAPSHOT_RECEIVED:
+      state += send_logout();
+    break;
+      case LOGGED_OUT:
+      break;
+  }
 
-  //exit thread at the end
+  auto now = std::chrono::steady_clock::now();
+  if (last_outgoing + 1s >= now)
+    send_hearbeat();
+  if (last_incoming + 50ms >= now)
+    throw std::runtime_error("Server timeout");
+}
+
+inline TcpHandler::State TcpHandler::get_state(void) const { return state; }
+
+bool TcpHandler::send_login(void)
+{
+  
+  return true;
 }

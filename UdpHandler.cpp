@@ -30,14 +30,17 @@ UdpHandler::~UdpHandler(void)
   close(fd);
 }
 
-void UdpHandler::receive_updates(void)
+void UdpHandler::accumulate_updates(void)
 {
-  while (orderbook_ready == false)
+  while (true)
   {
     //read packet
     //put in queue (by sorting by sequence number)
   }
+}
 
+void UdpHandler::process_updates(void)
+{
   while (true)
   {
     //read packet

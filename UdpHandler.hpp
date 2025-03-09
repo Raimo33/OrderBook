@@ -8,7 +8,8 @@ class UdpHandler
     UdpHandler(struct sockaddr_in& addr, OrderBook& order_book);
     ~UdpHandler(void);
 
-    void receive_updates(void);
+    void accumulate_updates(void);
+    void process_updates(void);
 
   private:
     int fd;

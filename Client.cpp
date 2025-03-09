@@ -25,7 +25,15 @@ Client::~Client(void) {}
 
 void Client::run(void)
 {
+  while (tcp_handler.get_state() != TcpHandler::LOGGED_OUT)
+  {
+    tcp_handler.request_orderbook();
+    udp_handler.accumulate_updates();
+  }
+
   //TODO in parallel
-  tcp_handler.request_snapshot();
-  udp_handler.receive_updates();
+  {
+    udp_handler.update_orderbook()
+    engine.print_best_prices();
+  }
 }
