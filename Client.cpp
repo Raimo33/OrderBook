@@ -21,9 +21,10 @@ last edited: 2025-03-08 21:24:05
 #include "Client.hpp"
 #include "macros.hpp"
 
+//TODO bind to specific static IP instead of INADDR_ANY
+
 Client::Client(const std::string_view ip_str, const uint16_t port) :
-  tcp_sequence(0),
-  udp_sequence(0)
+  tcp_sequence(DISCONNECTED)
 {
   std::memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
@@ -46,7 +47,7 @@ Client::~Client(void)
   free_udp_socket();
 }
 
-void Client::init_udp_socket(void)
+COLD void Client::init_udp_socket(void)
 {
   udp_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 
@@ -63,7 +64,7 @@ void Client::init_udp_socket(void)
   connect(udp_fd, (struct sockaddr *)&addr, sizeof(addr));
 }
 
-void Client::init_tcp_socket(void)
+COLD void Client::init_tcp_socket(void)
 {
   tcp_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
@@ -74,7 +75,7 @@ void Client::init_tcp_socket(void)
   connect(tcp_fd, (struct sockaddr *)&addr, sizeof(addr));
 }
 
-void Client::init_epoll(void)
+COLD void Client::init_epoll(void)
 {
   epoll_fd = epoll_create1(0);
 
@@ -88,75 +89,94 @@ void Client::init_epoll(void)
 
 void Client::run(void)
 {
-  struct epoll_event events[2];
-  void (Client::*handlers[2])(uint32_t) = {&Client::handle_tcp_event, &Client::handle_udp_event};
+  fetch_snapshot();
+  update_orderbook();
+}
+
+COLD void Client::fetch_snapshot(void)
+{
+  struct epoll_event events[2] = {0};
+
+  while (tcp_sequence != LOGGED_OUT)
+  {
+    const int nfds = epoll_wait(epoll_fd, events, 2, -1);
+
+    for (int i = 0; i < nfds; i++)
+    {
+      if (events[i].data.fd == tcp_fd)
+        handle_tcp_event(events[i].events);
+      else
+        handle_udp_event(events[i].events);
+    }
+  }
+
+  free_tcp_socket();
+}
+
+void Client::update_orderbook(void)
+{
+  struct epoll_event ev = {0};
 
   while (true)
   {
-    uint8_t nfds = epoll_wait(epoll_fd, events, 2, -1);
-
-    for (uint8_t i = 0; i < nfds; i++)
-    {
-      const struct epoll_event ev = events[i];
-      if (ev.events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
-        handle_error(ev.data.fd, ev.events);
-      
-      const uint8_t idx = (ev.data.fd == udp_fd);
-      (this->*handlers[idx])(ev.events);
-    }
+    epoll_wait(epoll_fd, &ev, 1, -1);
+    handle_udp_event(ev.events);
   }
 }
 
-inline void Client::handle_udp_event(const uint32_t ev)
+HOT inline void Client::handle_udp_event(const uint32_t ev)
 {
-  //TODO maybe dont even care about EPOLLOUT or EPOLLIN.
+  const bool error = ev & (EPOLLERR | EPOLLHUP | EPOLLRDHUP);
+  if (UNLIKELY(error))
+    throw std::runtime_error("UDP connection closed unexpectedly");
+
+  //TODO almost always epollin, queue the packet
 }
 
-void Client::handle_tcp_event(const uint32_t ev)
+COLD void Client::handle_tcp_event(const uint32_t ev)
 {
+  const bool error = ev & (EPOLLERR | EPOLLHUP | EPOLLRDHUP);
+  if (UNLIKELY(error & (tcp_sequence != DISCONNECTED)))
+    throw std::runtime_error("TCP connection closed unexpectedly");
+
   switch (tcp_sequence)
   {
-    case 0:
-      sequence += send_login_request(ev);
+    case DISCONNECTED:
+      if (LIKELY(send_login_request(ev)))
+        tcp_sequence = LOGIN_SENT;
       return;
-    case 1:
+    case LOGIN_SENT:
       if (UNLIKELY(!recv_login_response(ev)))
         return;
-      sequence++;
-    case 2:
+      tcp_sequence = LOGIN_RECEIVED;
+    case LOGIN_RECEIVED:
       if (UNLIKELY(!recv_snapshot(ev)))
         return;
-      sequence++;
-    case 3:
+      tcp_sequence = SNAPSHOT_RECEIVED;
+    case SNAPSHOT_RECEIVED:
       if (UNLIKELY(!send_logout_request(ev)))
         return;
-      sequence = 0;
+      tcp_sequence = LOGGED_OUT;
     default:
-      UNREACHABLE;
+      return;
   }
-  UNREACHABLE;
 }
 
-void Client::send_login_request(const uint32_t ev)
+COLD void Client::send_login_request(const uint32_t ev)
 {
   //TODO move semantics to move ownership of the string to the buffer
-}
-
-NEVER_INLINE void handle_error(const int fd, const uint32_t ev)
-{
-  std::ostringstream oss;
-  oss << "Error on file descriptor " << fd << " with event " << ev;
-  throw std::runtime_error(oss.str());
 }
 
 void Client::free_udp_socket(void)
 {
   setsockopt(udp_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
+  epoll_ctl(epoll_fd, EPOLL_CTL_DEL, udp_fd, nullptr);
   close(udp_fd);
 }
 
 void Client::free_tcp_socket(void)
 {
+  epoll_ctl(epoll_fd, EPOLL_CTL_DEL, tcp_fd, nullptr);
   close(tcp_fd);
 }
 
