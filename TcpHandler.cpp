@@ -8,17 +8,19 @@
 
 using namespace std::chrono_literals;
 
-TcpHandler::TcpHandler(struct sockaddr_in& addr, OrderBook& order_book) :
+TcpHandler::TcpHandler(OrderBook& order_book) :
   state(DISCONNECTED),
   order_book(order_book)
 {
+  //TODO parse ips and port
+
   fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
   constexpr int enable = 1;
   setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable));
   setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
 
-  connect(fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr));
+  connect(fd, reinterpret_cast<struct sockaddr *>(&glimpse_address), sizeof(glimpse_address));
   state = CONNECTED;
 }
 

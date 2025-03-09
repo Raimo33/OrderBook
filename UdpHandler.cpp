@@ -3,9 +3,11 @@
 
 #include "UdpHandler.hpp"
 
-UdpHandler::UdpHandler(struct sockaddr_in& addr, OrderBook& order_book) :
+UdpHandler::UdpHandler(OrderBook& order_book) :
   order_book(order_book)
 {
+  //TODO parse ips and port
+
   mreq.imr_multiaddr.s_addr = addr.sin_addr.s_addr;
   mreq.imr_interface.s_addr = htonl(INADDR_ANY);
 
@@ -15,8 +17,9 @@ UdpHandler::UdpHandler(struct sockaddr_in& addr, OrderBook& order_book) :
   setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
   setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
 
-  constexpr uint32_t buffer_size = 2 * 1024 * 1024;
-  setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size));
+  //TODO experiment with buffer size
+  // constexpr uint32_t buffer_size = 2 * 1024 * 1024;
+  // setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &buffer_size, sizeof(buffer_size));
 
   setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
 

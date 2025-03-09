@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <netinet/in.h>
 
@@ -11,13 +12,12 @@
 class Client
 {
   public:
-    Client(const std::string_view ip_str, const uint16_t port);
+    Client(void);
     ~Client(void);
 
     void run(void);
 
   private:
-    struct sockaddr_in addr;
     TcpHandler tcp_handler;
     UdpHandler udp_handler;
     OrderBook order_book;

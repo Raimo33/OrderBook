@@ -16,10 +16,9 @@ last edited: 2025-03-08 21:24:05
 
 //TODO bind to specific static IP instead of INADDR_ANY
 
-Client::Client(const std::string_view ip_str, const uint16_t port) :
-  addr({.sin_family = AF_INET, .sin_port = htons(port), .sin_addr.s_addr = inet_addr(ip_str.data())}),
-  tcp_handler(addr, order_book),
-  udp_handler(addr, order_book)
+Client::Client(void) :
+  tcp_handler(order_book),
+  udp_handler(order_book) {}
 
 Client::~Client(void) {}
 

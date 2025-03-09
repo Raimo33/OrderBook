@@ -1,17 +1,21 @@
 #pragma once
 
+#include <array>
+
 class OrderBook;
 
 class UdpHandler
 {
   public:
-    UdpHandler(struct sockaddr_in& addr, OrderBook& order_book);
+    UdpHandler(OrderBook& order_book);
     ~UdpHandler(void);
 
     void accumulate_updates(void);
     void process_updates(void);
 
   private:
+    std::array<struct sockaddr_in, 2> multicast_addresses;
+    std::array<struct sockaddr_in, 2> rewind_addresses;
     int fd;
     struct ip_mreq mreq;
     OrderBook& order_book;
