@@ -118,7 +118,7 @@ void Client::handle_tcp_event(const uint32_t ev)
   {
     case 0:
       sequence += send_login_request(ev);
-      break;
+      return;
     case 1:
       if (UNLIKELY(!recv_login_response(ev)))
         return;
@@ -130,12 +130,11 @@ void Client::handle_tcp_event(const uint32_t ev)
     case 3:
       if (UNLIKELY(!send_logout_request(ev)))
         return;
-      sequence++;
-    case 4:
       sequence = 0;
     default:
       UNREACHABLE;
   }
+  UNREACHABLE;
 }
 
 void Client::send_login_request(const uint32_t ev)
