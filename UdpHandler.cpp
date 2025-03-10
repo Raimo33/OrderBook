@@ -3,6 +3,8 @@
 
 #include "UdpHandler.hpp"
 #include "Config.hpp"
+#include "utils.hpp"
+#include "macros.hpp"
 
 UdpHandler::UdpHandler(const ClientConfig &client_conf, const ServerConfig &server_conf, OrderBook &order_book) :
   order_book(&order_book),
@@ -53,18 +55,24 @@ UdpHandler &UdpHandler::operator=(UdpHandler &other)
   return *this;
 }
 
-void UdpHandler::accumulate_updates(void)
+inline int UdpHandler::get_fd(void) const { return fd; }
+
+void UdpHandler::accumulate_updates(const uint32_t event_mask)
 {
-  while (true)
+  if (event_mask & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
+    utils::throw_exception("Error in udp socket");
+
   {
     //read packet
     //put in queue (by sorting by sequence number)
   }
 }
 
-void UdpHandler::process_updates(void)
+void UdpHandler::process_updates(const uint32_t event_mask)
 {
-  while (true)
+  if (event_mask & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
+    utils::throw_exception("Error in udp socket");
+
   {
     //read packet
     //put in queue (by sorting by sequence number)

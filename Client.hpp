@@ -20,6 +20,7 @@ class Client
     void run(void);
 
   private:
+    void init_epoll(void);
     void switch_server(void);
 
     Config config;
@@ -27,4 +28,5 @@ class Client
     TcpHandler tcp_handler;
     UdpHandler udp_handler;
     OrderBook order_book;
+    int epoll_fd;
 };

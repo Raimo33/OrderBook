@@ -15,14 +15,16 @@ class UdpHandler
 
     UdpHandler &operator=(const UdpHandler &other);
 
-    void accumulate_updates(void);
-    void process_updates(void);
+    int get_fd(void) const;
+
+    void accumulate_updates(const uint32_t event_mask);
+    void process_updates(const uint32_t event_mask);
 
   private:
     int fd;
-    struct sockaddr_in multicast_address;
-    struct sockaddr_in rewind_address;
-    struct ip_mreq mreq;
+    sockaddr_in multicast_address;
+    sockaddr_in rewind_address;
+    ip_mreq mreq;
     OrderBook *order_book;
     std::chrono::time_point<std::chrono::steady_clock> last_received;
     //TODO simple queue circular buffer for packets O(1) insert and remove, O(nlog n) sorting. prefixed size (MAX_PACKETS_IN_FLIGHT)
