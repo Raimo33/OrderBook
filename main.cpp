@@ -20,10 +20,10 @@ int main(void)
   try
   {
     Config config = load_config();
-    Client client;
+    Client client(config);
     client.run();
   }
-  catch (const std::exception& e)
+  catch (const std::exception &e)
   {
     std::cerr << "Error: " << e.what() << std::endl;
     return 1;

@@ -20,9 +20,9 @@ class OrderBook
   private:
     typedef std::pair<uint32_t, uint64_t> PriceLevel;
 
-    bool (*comparators[2])(const PriceLevel& lhs, const int32_t price);
+    bool (*comparators[2])(const PriceLevel &lhs, const int32_t price);
 
-    template <class Compare> void addOrder(std::vector<PriceLevel>& levels, const int32_t price, const uint64_t volume, Compare comp);
+    template <class Compare> void addOrder(std::vector<PriceLevel> &levels, const int32_t price, const uint64_t volume, Compare comp);
     template <class Compare> void removeOrder(std::vector<PriceLevel> &levels, const int32_t price, const uint64_t volume, Compare comp);
 
     std::vector<PriceLevel> level_arrays[2];

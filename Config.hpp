@@ -3,24 +3,30 @@
 #include <string>
 #include <array>
 
-
-struct Config
+struct ClientConfig
 {
+  std::string bind_address;
+  int udp_port;
+  int tcp_port;
+  std::string user_id;
+  std::string password;
+};
 
+struct ServerConfig
+{
   struct Endpoint
   {
     std::string ip;
     int port;
   };
 
-  std::string bind_address;
-  int udp_port;
-  int tcp_port;
-  std::array<Endpoint, 2> multicast_endpoints;
-  std::array<Endpoint, 2> rewind_endpoints;
-  std::array<Endpoint, 2> glimpse_endpoints;
-  std::string user_id;
-  std::string password;
+  Endpoint multicast_endpoint;
+  Endpoint rewind_endpoint;
+  Endpoint glimpse_endpoint;
 };
 
-Config load_config(void);
+struct Config
+{
+  ClientConfig client_conf;
+  std::array<ServerConfig, 2> server_confs;
+}

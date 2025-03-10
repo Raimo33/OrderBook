@@ -4,26 +4,17 @@
 #include "UdpHandler.hpp"
 #include "Config.hpp"
 
-UdpHandler::UdpHandler(const Config& config, OrderBook& order_book) :
-  order_book(order_book),
+UdpHandler::UdpHandler(const ClientConfig &client_conf, const ServerConfig &server_conf, OrderBook &order_book) :
+  order_book(&order_book),
   last_received(std::chrono::steady_clock::now())
 {
+  multicast_address.sin_family = AF_INET;
+  multicast_address.sin_port = htons(server_conf.multicast_endpoint.port);
+  inet_pton(AF_INET, server_conf.multicast_endpoint.ip.c_str(), &multicast_address.sin_addr);
 
-  for (auto& multicast_address : multicast_addresses)
-  {
-    multicast_address.sin_family = AF_INET;
-    multicast_address.sin_port = htons(config.multicast_endpoints[0].port);
-    inet_pton(AF_INET, config.multicast_endpoints[0].ip.c_str(), &multicast_address.sin_addr);
-
-    //TODO mreqs
-  }
-
-  for (auto& rewind_address : rewind_addresses)
-  {
-    rewind_address.sin_family = AF_INET;
-    rewind_address.sin_port = htons(config.rewind_endpoints[0].port);
-    inet_pton(AF_INET, config.rewind_endpoints[0].ip.c_str(), &rewind_address.sin_addr);
-  }
+  rewind_address.sin_family = AF_INET;
+  rewind_address.sin_port = htons(server_conf.rewind_endpoint.port);
+  inet_pton(AF_INET, server_conf.rewind_endpoint.ip.c_str(), &rewind_address.sin_addr);
 
   const int fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 
@@ -32,16 +23,34 @@ UdpHandler::UdpHandler(const Config& config, OrderBook& order_book) :
 
   sockaddr_in bind_addr;
   bind_addr.sin_family = AF_INET;
-  bind_addr.sin_port = htons(config.udp_port);
-  inet_pton(AF_INET, config.bind_address.c_str(), &bind_addr.sin_addr);
+  bind_addr.sin_port = htons(client_conf.udp_port);
+  inet_pton(AF_INET, client_conf.bind_address.c_str(), &bind_addr.sin_addr);
 
+  mreq.imr_multiaddr = multicast_address.sin_addr;
+  inet_pton(AF_INET, client_conf.bind_address.c_str(), &mreq.imr_interface);
+
+  setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
   bind(fd, (sockaddr*)&bind_addr, sizeof(bind_addr));
-  //TODO join multicast group
 }
 
 UdpHandler::~UdpHandler(void)
 {
   close(fd);
+}
+
+UdpHandler &UdpHandler::operator=(UdpHandler &other)
+{
+   if (this == &other)
+     return *this;
+
+  order_book = other.order_book;
+  multicast_address = other.multicast_address;
+  rewind_address = other.rewind_address;
+  mreq = other.mreq;
+  fd = other.fd;
+  last_received = other.last_received;
+
+  return *this;
 }
 
 void UdpHandler::accumulate_updates(void)

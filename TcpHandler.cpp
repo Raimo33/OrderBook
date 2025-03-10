@@ -6,22 +6,19 @@
 
 #include "TcpHandler.hpp"
 #include "Config.hpp"
+#include "macros.hpp"
 
 using namespace std::chrono_literals;
 
-TcpHandler::TcpHandler(const Config& config, OrderBook& order_book) :
+TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &server_conf, OrderBook &order_book) :
   state(DISCONNECTED),
-  order_book(order_book),
+  order_book(&order_book),
   last_outgoing(std::chrono::steady_clock::now()),
-  last_incoming(std::chrono::steady_clock::now()),
+  last_incoming(std::chrono::steady_clock::now())
 {
-
-  for (auto& glimpse_address : glimpse_addresses)
-  {
-    glimpse_address.sin_family = AF_INET;
-    glimpse_address.sin_port = htons(config.glimpse_endpoints[0].port);
-    inet_pton(AF_INET, config.glimpse_endpoints[0].ip.c_str(), &glimpse_address.sin_addr);
-  }
+  glimpse_address.sin_family = AF_INET;
+  glimpse_address.sin_port = htons(server_conf.glimpse_endpoint.port);
+  inet_pton(AF_INET, server_conf.glimpse_endpoint.ip.c_str(), &glimpse_address.sin_addr);
 
   fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
@@ -31,11 +28,10 @@ TcpHandler::TcpHandler(const Config& config, OrderBook& order_book) :
 
   struct sockaddr_in bind_addr;
   bind_addr.sin_family = AF_INET;
-  bind_addr.sin_port = htons(config.tcp_port);
-  inet_pton(AF_INET, config.bind_address.c_str(), &bind_addr.sin_addr);
+  bind_addr.sin_port = htons(client_conf.tcp_port);
+  inet_pton(AF_INET, client_conf.bind_address.c_str(), &bind_addr.sin_addr);
 
   bind(fd, reinterpret_cast<struct sockaddr *>(&bind_addr), sizeof(bind_addr));
-  state = CONNECTED;
 }
 
 TcpHandler::~TcpHandler(void)
@@ -43,12 +39,25 @@ TcpHandler::~TcpHandler(void)
   close(fd);
 }
 
-void TcpHandler::request_snapshot(void)
+TcpHandler &TcpHandler::operator=(const TcpHandler &other)
+{
+  if (this == &other)
+    return *this;
+
+  state = other.state;
+  fd = other.fd;
+  glimpse_address = other.glimpse_address;
+  order_book = other.order_book;
+  last_outgoing = other.last_outgoing;
+  last_incoming = other.last_incoming;
+}
+
+COLD void TcpHandler::request_snapshot(void)
 {
   switch (state)
   {
     case DISCONNECTED:
-      state += connect(fd, reinterpret_cast<struct sockaddr *>(&glimpse_addresses[0]), sizeof(glimpse_addresses[0]));
+      state += connect(fd, reinterpret_cast<sockaddr *>(&glimpse_address), sizeof(glimpse_address));
       break;
     case CONNECTED:
       state += send_login();
