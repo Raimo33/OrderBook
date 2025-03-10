@@ -8,7 +8,7 @@ struct ClientConfig
   std::string bind_address;
   int udp_port;
   int tcp_port;
-  std::string user_id;
+  std::string username;
   std::string password;
 };
 
@@ -29,4 +29,6 @@ struct Config
 {
   ClientConfig client_conf;
   std::array<ServerConfig, 2> server_confs;
-}
+};
+
+Config load_config(void);

@@ -1,6 +1,6 @@
 #include "Config.hpp"
 
-static Config::Endpoint parse_ip_and_port(const std::string &ip_and_port)
+static ServerConfig::Endpoint parse_ip_and_port(const std::string &ip_and_port)
 {
   const size_t colon_pos = ip_and_port.find(':');
   return {
@@ -13,25 +13,23 @@ Config load_config(void)
 {
   Config config;
 
-  config.bind_address = std::getenv("BIND_ADDR");
-  config.udp_port = std::stoi(std::getenv("UDP_PORT"));
-  config.tcp_port = std::stoi(std::getenv("TCP_PORT"));
-
-  config.multicast_endpoints = {
-    parse_ip_and_port(std::getenv("MULTICAST_ADDR_1")),
-    parse_ip_and_port(std::getenv("MULTICAST_ADDR_2"))
+  config.client_conf = {
+    .bind_address = getenv("BIND_ADDRESS"),
+    .udp_port = std::stoi(getenv("UDP_PORT")),
+    .tcp_port = std::stoi(getenv("TCP_PORT")),
+    .username = getenv("USERNAME"),
+    .password = getenv("PASSWORD")
   };
 
-  config.rewind_endpoints = {
-    parse_ip_and_port(std::getenv("REWIND_ADDR_1")),
-    parse_ip_and_port(std::getenv("REWIND_ADDR_2"))
+  config.server_confs[0] = {
+    .multicast_endpoint = parse_ip_and_port(getenv("MULTICAST_ENDPOINT_1")),
+    .rewind_endpoint = parse_ip_and_port(getenv("REWIND_ENDPOINT_1")),
+    .glimpse_endpoint = parse_ip_and_port(getenv("GLIMPSE_ENDPOINT_1"))
   };
 
-  config.glimpse_endpoints = {
-    parse_ip_and_port(std::getenv("GLIMPSE_ADDR_1")),
-    parse_ip_and_port(std::getenv("GLIMPSE_ADDR_2"))
+  config.server_confs[1] = {
+    .multicast_endpoint = parse_ip_and_port(getenv("MULTICAST_ENDPOINT_2")),
+    .rewind_endpoint = parse_ip_and_port(getenv("REWIND_ENDPOINT_2")),
+    .glimpse_endpoint = parse_ip_and_port(getenv("GLIMPSE_ENDPOINT_2"))
   };
-
-  config.user_id = std::getenv("USER_ID");
-  config.password = std::getenv("PASSWORD");
 }

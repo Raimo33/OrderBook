@@ -7,6 +7,7 @@
 
 #include "TcpHandler.hpp"
 #include "Config.hpp"
+#include "Packets.hpp"
 #include "utils.hpp"
 #include "macros.hpp"
 
@@ -16,29 +17,59 @@ TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &serv
   state(DISCONNECTED),
   order_book(&order_book),
   last_outgoing(std::chrono::steady_clock::now()),
-  last_incoming(std::chrono::steady_clock::now())
+  last_incoming(std::chrono::steady_clock::now()),
+  glimpse_address(init_glimpse_address(server_conf)),
+  login_request(init_login_request(client_conf)),
+  logout_request(init_logout_request()),
+  client_heartbeat(init_client_heartbeat()),
+  sock_fd(init_socket())
 {
-  glimpse_address.sin_family = AF_INET;
-  glimpse_address.sin_port = htons(server_conf.glimpse_endpoint.port);
-  inet_pton(AF_INET, server_conf.glimpse_endpoint.ip.c_str(), &glimpse_address.sin_addr);
-
-  fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-
-  constexpr int enable = 1;
-  setsockopt(fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable));
-  setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
-
   sockaddr_in bind_addr;
   bind_addr.sin_family = AF_INET;
   bind_addr.sin_port = htons(client_conf.tcp_port);
   inet_pton(AF_INET, client_conf.bind_address.c_str(), &bind_addr.sin_addr);
 
-  bind(fd, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr));
+  bind(sock_fd, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr));
+}
+
+const sockaddr_in TcpHandler::init_glimpse_address(const ServerConfig &server_conf)
+{
+  return {
+    .sin_family = AF_INET,
+    .sin_port = htons(server_conf.glimpse_endpoint.port),
+    .sin_addr = { .s_addr = inet_addr(server_conf.glimpse_endpoint.ip.c_str()) }
+  };
+}
+
+const SoupBinTCPPacket<LoginRequest> TcpHandler::init_login_request(const ClientConfig &client_conf)
+{
+  //TODO
+}
+
+const SoupBinTCPPacket<LogoutRequest> TcpHandler::init_logout_request(void)
+{
+  //TODO
+}
+
+const SoupBinTCPPacket<UserHeartbeat> TcpHandler::init_client_heartbeat(void)
+{
+  //TODO
+}
+
+const int TcpHandler::init_socket(void)
+{
+  const int sock_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+
+  constexpr int enable = 1;
+  setsockopt(sock_fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable));
+  setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
+
+  return sock_fd;
 }
 
 TcpHandler::~TcpHandler(void)
 {
-  close(fd);
+  close(sock_fd);
 }
 
 TcpHandler &TcpHandler::operator=(const TcpHandler &other)
@@ -47,12 +78,12 @@ TcpHandler &TcpHandler::operator=(const TcpHandler &other)
     return *this;
 
   state = other.state;
-  fd = other.fd;
-  glimpse_address = other.glimpse_address;
   order_book = other.order_book;
   last_outgoing = other.last_outgoing;
   last_incoming = other.last_incoming;
 }
+
+
 
 COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
 {
@@ -62,7 +93,7 @@ COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
   switch (state)
   {
     case DISCONNECTED:
-      state += connect(fd, reinterpret_cast<sockaddr *>(&glimpse_address), sizeof(glimpse_address));
+      state += connect(sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address));
       break;
     case CONNECTED:
       state += send_login(event_mask);
@@ -94,7 +125,6 @@ inline int TcpHandler::get_fd(void) const { return fd; }
 bool TcpHandler::send_login(const uint32_t event_mask)
 {
   utils::assert(event_mask & EPOLLOUT, "Socket not writeable");
-
 
   return true;
 }

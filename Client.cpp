@@ -11,6 +11,7 @@ last edited: 2025-03-08 21:24:05
 
 #include <arpa/inet.h>
 #include <sys/epoll.h>
+#include <unistd.h>
 
 #include "Client.hpp"
 #include "Config.hpp"
@@ -19,36 +20,44 @@ last edited: 2025-03-08 21:24:05
 Client::Client(const Config &config) :
   config(config),
   server_idx(0),
-  tcp_handler(config.client_conf, config.server_confs[server_idx], order_book),
-  udp_handler(config.client_conf, config.server_confs[server_idx], order_book),
   epoll_fd(epoll_create1(0))
 {
-  init_epoll(void);
+  create_handlers();
 }
 
-Client::~Client(void) {}
-
-COLD void Client::init_epoll(void)
+void Client::create_handlers(void)
 {
-  const int tcp_fd = tcp_handler.get_fd();
-  const int udp_fd = udp_handler.get_fd();
+  tcp_handler = std::make_unique<TcpHandler>(config.client_conf, config.server_confs[server_idx], order_book);
+  udp_handler = std::make_unique<UdpHandler>(config.client_conf, config.server_confs[server_idx], order_book);
 
+  add_to_epoll(tcp_handler->get_fd());
+  add_to_epoll(udp_handler->get_fd());
+}
+
+Client::~Client(void)
+{
+  close(epoll_fd);
+}
+
+COLD void Client::add_to_epoll(const int fd)
+{
   constexpr uint32_t event_mask = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLRDHUP | EPOLLET;
-  epoll_event events[2] = {
-    {.events = event_mask, .data.fd = tcp_fd},
-    {.events = event_mask, .data.fd = udp_fd}
-  };
-  epoll_ctl(epoll_fd, EPOLL_CTL_ADD, tcp_fd, &events[0]);
-  epoll_ctl(epoll_fd, EPOLL_CTL_ADD, udp_fd, &events[1]);
+  epoll_event event = {.events = event_mask, .data = {.fd = fd}};
+  epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
+}
+
+COLD void Client::remove_from_epoll(const int fd)
+{
+  epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
 }
 
 void Client::run(void)
 {
-  const int tcp_fd = tcp_handler.get_fd();
-  const int udp_fd = udp_handler.get_fd();
-
+  const int tcp_fd = tcp_handler->get_fd();
+  // const int udp_fd = udp_handler->get_fd();
+  
   {
-    while (tcp_handler.get_state() != TcpHandler::LOGGED_OUT)
+    while (tcp_handler->get_state() != TcpHandler::LOGGED_OUT)
     {
       epoll_event events[2];
       uint8_t n = epoll_wait(epoll_fd, events, 2, -1);
@@ -58,33 +67,35 @@ void Client::run(void)
         const epoll_event event = events[n];
         const uint32_t mask = event.events;
 
-        if (event.data.fd == tcp_fd)
-          tcp_handler.request_snapshot(mask);
+        if (LIKELY(event.data.fd == tcp_fd))
+          tcp_handler->request_snapshot(mask);
         else
-          udp_handler.accumulate_updates(mask);
+          udp_handler->accumulate_updates(mask);
       }
     }
   }
 
-  epoll_ctl(epoll_fd, EPOLL_CTL_DEL, tcp_fd, nullptr);
+  remove_from_epoll(tcp_fd);
 
   {
     while (true)
     {
       epoll_event event;
-      uint8_t n = epoll_wait(epoll_fd, &event, 1, -1);
+      epoll_wait(epoll_fd, &event, 1, -1);
 
-      udp_handler.process_updates(event.events);
-      //switch server if error
-      engine.print_orderbook();
+      udp_handler->process_updates(event.events);
+      //TODO switch server if error
+      // engine.print_orderbook();
     }
   }
 }
 
 void Client::switch_server(void)
 {
+  remove_from_epoll(tcp_handler->get_fd());
+  remove_from_epoll(udp_handler->get_fd());
+
   server_idx ^= 1;
 
-  tcp_handler = TcpHandler(config.client_conf, config.server_confs[server_idx], order_book);
-  udp_handler = UdpHandler(config.client_conf, config.server_confs[server_idx], order_book);
+  create_handlers();
 }

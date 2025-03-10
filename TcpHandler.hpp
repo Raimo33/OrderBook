@@ -30,18 +30,25 @@ class TcpHandler
     void request_snapshot(const uint32_t event_mask);
 
   private:
-    void send_login(const uint32_t event_mask);
-    void recv_login(const uint32_t event_mask);
-    void recv_snapshot(const uint32_t event_mask);
-    void send_logout(const uint32_t event_mask);
-    void send_hearbeat(const uint32_t event_mask);
+    const sockaddr_in init_glimpse_address(const ServerConfig &server_conf);
+    const int init_socket(void);
+    const SoupBinTCPPacket<LoginRequest> init_login_request(const ClientConfig &client_conf);
+    const SoupBinTCPPacket<LogoutRequest> init_logout_request(void);
+    const SoupBinTCPPacket<UserHeartbeat> init_client_heartbeat(void);
 
-    sockaddr_in glimpse_address;
-    int fd;
+    bool send_login(const uint32_t event_mask);
+    bool recv_login(const uint32_t event_mask);
+    bool recv_snapshot(const uint32_t event_mask);
+    bool send_logout(const uint32_t event_mask);
+    bool send_hearbeat(const uint32_t event_mask);
+
+    const sockaddr_in glimpse_address;
+    const int sock_fd;
     State state;
     OrderBook *order_book;
-    std::string username;
-    std::string password;
+    const SoupBinTCPPacket<LoginRequest> login_request;
+    const SoupBinTCPPacket<LogoutRequest> logout_request;
+    const SoupBinTCPPacket<UserHeartbeat> client_heartbeat;
     std::chrono::time_point<std::chrono::steady_clock> last_outgoing;
     std::chrono::time_point<std::chrono::steady_clock> last_incoming;
 };
