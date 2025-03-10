@@ -14,6 +14,8 @@ UdpHandler::UdpHandler(const Config& config, OrderBook& order_book) :
     multicast_address.sin_family = AF_INET;
     multicast_address.sin_port = htons(config.multicast_endpoints[0].port);
     inet_pton(AF_INET, config.multicast_endpoints[0].ip.c_str(), &multicast_address.sin_addr);
+
+    //TODO mreqs
   }
 
   for (auto& rewind_address : rewind_addresses)
@@ -34,6 +36,7 @@ UdpHandler::UdpHandler(const Config& config, OrderBook& order_book) :
   inet_pton(AF_INET, config.bind_address.c_str(), &bind_addr.sin_addr);
 
   bind(fd, (sockaddr*)&bind_addr, sizeof(bind_addr));
+  //TODO join multicast group
 }
 
 UdpHandler::~UdpHandler(void)
