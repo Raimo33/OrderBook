@@ -4,11 +4,12 @@
 #include <chrono>
 
 class OrderBook;
+class Config;
 
 class TcpHandler
 {
   public:
-    TcpHandler(OrderBook& order_book);
+    TcpHandler(const Config& config, OrderBook& order_book);
     ~TcpHandler(void);
 
     enum State : uint8_t { DISCONNECTED, CONNECTED, LOGIN_SENT, LOGIN_RECEIVED, SNAPSHOT_RECEIVED, LOGGED_OUT };

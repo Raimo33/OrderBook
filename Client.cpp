@@ -16,9 +16,9 @@ last edited: 2025-03-08 21:24:05
 
 //TODO bind to specific static IP instead of INADDR_ANY
 
-Client::Client(void) :
-  tcp_handler(order_book),
-  udp_handler(order_book) {}
+Client::Client(const Config& config) :
+  tcp_handler(config, order_book),
+  udp_handler(config, order_book) {}
 
 Client::~Client(void) {}
 

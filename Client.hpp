@@ -12,7 +12,7 @@
 class Client
 {
   public:
-    Client(void);
+    Client(const Config& config);
     ~Client(void);
 
     void run(void);

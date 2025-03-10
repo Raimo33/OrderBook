@@ -13,12 +13,14 @@ last edited: 2025-03-08 21:24:05
 #include <stdexcept>
 
 #include "Client.hpp"
+#include "Config.hpp"
 
 int main(void)
 {
   try
   {
-    Client client();
+    Config config = load_config();
+    Client client;
     client.run();
   }
   catch (const std::exception& e)
