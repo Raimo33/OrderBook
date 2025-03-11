@@ -98,6 +98,7 @@ TcpHandler &TcpHandler::operator=(const TcpHandler &other)
   return *this;
 }
 
+//TODO fix, epoll is edge triggered, keep a persistent variable in Client to store the event_mask
 COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
 {
   if (event_mask & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
@@ -107,19 +108,14 @@ COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
   {
     case DISCONNECTED:
       state += connect(sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address));
-      break;
     case CONNECTED:
-      state += send_login(event_mask);
-      break;
+      state += send_login();
     case LOGIN_SENT:
-      state += recv_login(event_mask); //if they receive a heartbeat they just update the last_incoming time
-      break;
+      state += recv_login();
     case LOGIN_RECEIVED:
-      state += recv_snapshot(event_mask); //if they receive a heartbeat they just update the last_incoming time
-      break;
+      state += recv_snapshot();
     case SNAPSHOT_RECEIVED:
-      state += send_logout(event_mask);
-      break;
+      state += send_logout();
     case LOGGED_OUT:
       break;
   }
@@ -140,50 +136,47 @@ inline TcpHandler::State TcpHandler::get_state(void) const noexcept { return sta
 inline int TcpHandler::get_sock_fd(void)  const noexcept { return sock_fd; }
 inline int TcpHandler::get_timer_fd(void) const noexcept { return timer_fd; }
 
-COLD bool TcpHandler::send_login(const uint32_t event_mask)
+COLD bool TcpHandler::send_login(void)
 {
   constexpr uint32_t total_size = sizeof(login_request);
   static const char *buffer = reinterpret_cast<const char *>(&login_request);
   static uint32_t sent_bytes = 0;
-  
-  utils::assert(event_mask & EPOLLOUT, "Socket not writeable");
-  
+
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
+  last_outgoing = std::chrono::steady_clock::now();
 
   return (sent_bytes == total_size);
 }
 
-COLD bool TcpHandler::recv_login(const uint32_t event_mask)
+//TODO fix, discard if heartbeat
+COLD bool TcpHandler::recv_login(void)
 {
   constexpr uint32_t total_size = sizeof(SoupBinTCPPacket<LoginAcceptance>);
   static char buffer[total_size] = {0};
   static uint32_t received_bytes = 0;
 
-  utils::assert(event_mask & EPOLLIN, "Socket not readable");
-
   received_bytes += utils::try_tcp_recv(sock_fd, buffer + received_bytes, total_size - received_bytes);
+  last_incoming = std::chrono::steady_clock::now();
 
   return (received_bytes == total_size);
 }
 
-bool TcpHandler::recv_snapshot(const uint32_t event_mask)
+//TODO fix, discard if heartbeat
+bool TcpHandler::recv_snapshot(void)
 {
-  utils::assert(event_mask & EPOLLIN, "Socket not readable");
-
   //TODO manage sequences, there are many packets to receive across this kind of calls
 
   return true;
 }
 
-COLD bool TcpHandler::send_logout(const uint32_t event_mask)
+COLD bool TcpHandler::send_logout(void)
 {
   constexpr uint32_t total_size = sizeof(logout_request);
   static const char *buffer = reinterpret_cast<const char *>(&logout_request);
   static uint32_t sent_bytes = 0;
 
-  utils::assert(event_mask & EPOLLOUT, "Socket not writeable");
-
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
+  last_incoming = std::chrono::steady_clock::now();
 
   return (sent_bytes == total_size);
 }
@@ -194,6 +187,7 @@ bool TcpHandler::send_hearbeat(void)
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
+  last_outgoing = std::chrono::steady_clock::now();
 
   return (sent_bytes == total_size);
 }

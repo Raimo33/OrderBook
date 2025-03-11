@@ -21,8 +21,8 @@ class TcpHandler
     enum State : uint8_t { DISCONNECTED, CONNECTED, LOGIN_SENT, LOGIN_RECEIVED, SNAPSHOT_RECEIVED, LOGGED_OUT };
 
     State get_state(void) const noexcept;
-    int get_sock_fd(void) const noexcept;
-    int get_timer_fd(void) const noexcept;
+    int   get_sock_fd(void) const noexcept;
+    int   get_timer_fd(void) const noexcept;
 
     void request_snapshot(const uint32_t event_mask);
     void handle_heartbeat_timeout(const uint32_t event_mask);
@@ -31,14 +31,14 @@ class TcpHandler
 
     const int create_socket(void) const noexcept;
 
-    const SoupBinTCPPacket<LoginRequest> create_login_request(const ClientConfig &client_conf) const noexcept;
+    const SoupBinTCPPacket<LoginRequest>  create_login_request(const ClientConfig &client_conf) const noexcept;
     const SoupBinTCPPacket<LogoutRequest> create_logout_request(void) const noexcept;
     const SoupBinTCPPacket<UserHeartbeat> create_user_heartbeat(void) const noexcept;
 
-    bool send_login(const uint32_t event_mask);
-    bool recv_login(const uint32_t event_mask);
-    bool recv_snapshot(const uint32_t event_mask);
-    bool send_logout(const uint32_t event_mask);
+    bool send_login(void);
+    bool recv_login(void);
+    bool recv_snapshot(void);
+    bool send_logout(void);
     bool send_hearbeat(void);
 
     const sockaddr_in glimpse_address;
@@ -46,7 +46,7 @@ class TcpHandler
     const int timer_fd;
     State state;
     OrderBook *order_book;
-    const SoupBinTCPPacket<LoginRequest> login_request;
+    const SoupBinTCPPacket<LoginRequest>  login_request;
     const SoupBinTCPPacket<LogoutRequest> logout_request;
     const SoupBinTCPPacket<UserHeartbeat> user_heartbeat;
     std::chrono::time_point<std::chrono::steady_clock> last_outgoing;
