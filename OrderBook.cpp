@@ -16,8 +16,8 @@ last edited: 2025-03-08 21:24:05
 
 OrderBook::OrderBook(void)
 {
-  comparators[BID] = [](const PriceLevel &lhs, const int32_t price) { return lhs.first < price; };
-  comparators[ASK] = [](const PriceLevel &lhs, const int32_t price) { return lhs.first > price; };
+  comparators[BID] = [](const PriceLevel &lhs, const uint32_t price) { return lhs.first < price; };
+  comparators[ASK] = [](const PriceLevel &lhs, const uint32_t price) { return lhs.first > price; };
 }
 
 OrderBook::~OrderBook(void) {}
@@ -28,19 +28,20 @@ HOT inline std::pair<uint32_t, uint32_t> OrderBook::getBestPrices(void) const
   return std::make_pair(level_arrays[BID].back().first, level_arrays[ASK].back().first);
 }
 
-HOT inline void OrderBook::addOrder(const Side side, const int32_t price, const uint64_t volume)
+HOT inline void OrderBook::addOrder(const Side side, const uint32_t price, const uint64_t volume)
 {
   addOrder(level_arrays[side], price, volume, comparators[side]);
 }
 
-HOT inline void OrderBook::removeOrder(const Side side, const int32_t price, const uint64_t volume)
+HOT inline void OrderBook::removeOrder(const Side side, const uint32_t price, const uint64_t volume)
 {
   removeOrder(level_arrays[side], price, volume, comparators[side]);
 }
 
 HOT inline void OrderBook::executeOrder(const Side side, uint64_t volume)
 {
-  auto &levels = level_arrays[side];  //TODO flip side?
+  const Side other_side = static_cast<Side>(side ^ 1);
+  auto &levels = level_arrays[other_side];
   
   while (volume > 0 && !levels.empty())
   {
@@ -56,7 +57,7 @@ HOT inline void OrderBook::executeOrder(const Side side, uint64_t volume)
 }
 
 template <class Compare>
-HOT void OrderBook::addOrder(std::vector<PriceLevel> &levels, const int32_t price, const uint64_t volume, Compare comp)
+HOT void OrderBook::addOrder(std::vector<PriceLevel> &levels, const uint32_t price, const uint64_t volume, Compare comp)
 {
   auto it = std::lower_bound(levels.begin(), levels.end(), price, comp);
 
@@ -67,7 +68,7 @@ HOT void OrderBook::addOrder(std::vector<PriceLevel> &levels, const int32_t pric
 }
 
 template <class Compare>
-HOT void OrderBook::removeOrder(std::vector<PriceLevel> &levels, const int32_t price, const uint64_t volume, Compare comp)
+HOT void OrderBook::removeOrder(std::vector<PriceLevel> &levels, const uint32_t price, const uint64_t volume, Compare comp)
 {
   auto it = std::lower_bound(levels.begin(), levels.end(), price, comp);
 

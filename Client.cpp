@@ -75,28 +75,26 @@ void Client::run(void)
   const int udp_sock_fd = udp_handler->get_sock_fd();
   const int tcp_timer_fd = tcp_handler->get_timer_fd();
   const int udp_timer_fd = udp_handler->get_timer_fd();
-  
+
+  while (tcp_handler->has_finished() == false)
   {
-    while (tcp_handler->has_finished() == false)
+    std::array<epoll_event, 4> events;
+    uint8_t n = epoll_wait(epoll_fd, events.data(), events.size(), -1);
+
+    while (n--)
     {
-      std::array<epoll_event, 4> events;
-      uint8_t n = epoll_wait(epoll_fd, events.data(), events.size(), -1);
+      const epoll_event event = events[n];
+      const uint32_t mask = event.events;
 
-      while (n--)
-      {
-        const epoll_event event = events[n];
-        const uint32_t mask = event.events;
-
-        //TODO branchless
-        if (LIKELY(event.data.fd == tcp_sock_fd))
-          tcp_handler->request_snapshot(mask);
-        else if (event.data.fd == udp_sock_fd)
-          udp_handler->accumulate_updates(mask);
-        else if (event.data.fd == tcp_timer_fd)
-          tcp_handler->handle_heartbeat_timeout(mask);
-        else if (event.data.fd == udp_timer_fd)
-          udp_handler->handle_heartbeat_timeout(mask);
-      }
+      //TODO branchless
+      if (LIKELY(event.data.fd == tcp_sock_fd))
+        tcp_handler->request_snapshot(mask);
+      else if (event.data.fd == udp_sock_fd)
+        udp_handler->accumulate_updates(mask);
+      else if (event.data.fd == tcp_timer_fd)
+        tcp_handler->handle_heartbeat_timeout(mask);
+      else if (event.data.fd == udp_timer_fd)
+        udp_handler->handle_heartbeat_timeout(mask);
     }
   }
 
@@ -114,6 +112,7 @@ void Client::run(void)
       const epoll_event event = events[n];
       const uint32_t mask = event.events;
 
+      //TODO branchless
       if (event.data.fd == udp_sock_fd)
         udp_handler->process_updates(mask);
       else if (event.data.fd == udp_timer_fd)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #pragma pack(push, 1)
 
@@ -35,7 +36,7 @@ struct LoginReject
 
 struct Data
 {
-  char message[0];
+  std::vector<char> message;
 };
 
 struct SnapshotCompletion

@@ -1,20 +1,20 @@
 #pragma once
 
-#include <stdexcept>
 #include <string>
 #include <string_view>
-#include <chrono>
+#include <netinet/in.h>
 
 #include "macros.hpp"
 
 namespace utils
 {
-  void throw_exception(const std::string_view message);
-  void assert(const bool condition, const std::string_view message = "Assertion failed");
-  sockaddr_in create_address(const std::string_view ip, const uint16_t port) noexcept;
-  int create_timer(const std::chrono::milliseconds interval);
-  size_t try_tcp_send(const int sock_fd, const char *buffer, const size_t size);
-  size_t try_udp_send(const int sock_fd, const char *buffer, const size_t size);
-  size_t try_tcp_recv(const int sock_fd, char *buffer, const size_t size);
-  size_t try_udp_recv(const int sock_fd, char *buffer, const size_t size);
+  COLD NEVER_INLINE void throw_exception(const std::string_view message);
+  HOT ALWAYS_INLINE inline void assert(const bool condition, const std::string_view message);
+  COLD sockaddr_in create_address(const std::string_view ip, const uint16_t port) noexcept;
+  COLD int create_timer(const std::chrono::milliseconds interval);
+  HOT inline size_t try_tcp_send(const int sock_fd, const char *buffer, const size_t size);
+  HOT inline size_t try_udp_send(const int sock_fd, const char *buffer, const size_t size);
+  HOT inline size_t try_recv(const int sock_fd, char *buffer, const size_t size);
 }
+
+#include "utils.inl"

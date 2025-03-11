@@ -13,12 +13,12 @@ using namespace std::chrono_literals;
 
 UdpHandler::UdpHandler(const ClientConfig &client_conf, const ServerConfig &server_conf, OrderBook &order_book) :
   order_book(&order_book),
-  last_received(std::chrono::steady_clock::now()),
   multicast_address(utils::create_address(server_conf.multicast_endpoint.ip, server_conf.multicast_endpoint.port)),
   rewind_address(utils::create_address(server_conf.rewind_endpoint.ip, server_conf.rewind_endpoint.port)),
   mreq(create_mreq(client_conf.bind_address)),
   sock_fd(create_socket()),
-  timer_fd(utils::create_timer(50ms))
+  timer_fd(utils::create_timer(50ms)),
+  last_incoming(std::chrono::steady_clock::now())
 {
   sockaddr_in bind_addr;
   bind_addr.sin_family = AF_INET;
@@ -36,7 +36,7 @@ const ip_mreq UdpHandler::create_mreq(const std::string_view bind_address) const
   };
 }
 
-const int UdpHandler::create_socket(void) const noexcept
+int UdpHandler::create_socket(void) const noexcept
 {
   const int sock_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 
@@ -66,11 +66,6 @@ UdpHandler &UdpHandler::operator=(const UdpHandler &other)
 
   return *this;
 }
-
-inline int UdpHandler::get_sock_fd(void)  const noexcept { return sock_fd; }
-inline int UdpHandler::get_timer_fd(void) const noexcept { return timer_fd; }
-
-//TODO redundancy, could have accumulate as reader and process as writer
 
 void UdpHandler::accumulate_updates(const uint32_t event_mask)
 {

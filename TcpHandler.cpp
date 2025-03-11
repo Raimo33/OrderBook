@@ -18,14 +18,14 @@ using namespace std::chrono_literals;
 TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &server_conf, OrderBook &order_book) :
   state(0),
   order_book(&order_book),
-  last_outgoing(std::chrono::steady_clock::now()),
-  last_incoming(std::chrono::steady_clock::now()),
   glimpse_address(utils::create_address(server_conf.glimpse_endpoint.ip, server_conf.glimpse_endpoint.port)),
+  sock_fd(create_socket()),
+  timer_fd(utils::create_timer(50ms)),
   login_request(create_login_request(client_conf)),
   logout_request(create_logout_request()),
   user_heartbeat(create_user_heartbeat()),
-  sock_fd(create_socket()),
-  timer_fd(utils::create_timer(50ms))
+  last_outgoing(std::chrono::steady_clock::now()),
+  last_incoming(std::chrono::steady_clock::now())
 {
   sockaddr_in bind_addr;
   bind_addr.sin_family = AF_INET;
@@ -53,7 +53,8 @@ const SoupBinTCPPacket<LogoutRequest> TcpHandler::create_logout_request(void) co
 {
   constexpr SoupBinTCPPacket<LogoutRequest> packet = {
     .length = sizeof(packet.type),
-    .type = 'O'
+    .type = 'O',
+    .body{}
   };
 
   return packet;
@@ -63,13 +64,14 @@ const SoupBinTCPPacket<UserHeartbeat> TcpHandler::create_user_heartbeat(void) co
 {
   constexpr SoupBinTCPPacket<UserHeartbeat> packet = {
     .length = sizeof(packet.type),
-    .type = 'R'
+    .type = 'R',
+    .body{}
   };
 
   return packet;
 }
 
-const int TcpHandler::create_socket(void) const noexcept
+int TcpHandler::create_socket(void) const noexcept
 {
   const int sock_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
@@ -107,14 +109,19 @@ COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
   {
     case 0:
       state += connect(sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address));
+      [[fallthrough]];
     case 1:
       state += send_login();
+      [[fallthrough]];
     case 2:
       state += recv_login();
+      [[fallthrough]];
     case 3:
       state += recv_snapshot();
+      [[fallthrough]];
     case 4:
       state += send_logout();
+      [[fallthrough]];
     case 5:
       break;
   }
@@ -131,10 +138,6 @@ void TcpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
   if (now - last_outgoing > 1s)
     send_hearbeat();
 }
-
-inline bool TcpHandler::has_finished(void) const noexcept { return state == 5; }
-inline int  TcpHandler::get_sock_fd(void)  const noexcept { return sock_fd; }
-inline int  TcpHandler::get_timer_fd(void) const noexcept { return timer_fd; }
 
 COLD bool TcpHandler::send_login(void)
 {
@@ -155,7 +158,7 @@ COLD bool TcpHandler::recv_login(void)
   constexpr uint32_t total_size = sizeof(packet);
   static uint32_t received_bytes = 0;
 
-  received_bytes += utils::try_tcp_recv(sock_fd, buffer + received_bytes, total_size - received_bytes);
+  received_bytes += utils::try_recv(sock_fd, buffer + received_bytes, total_size - received_bytes);
   last_incoming = std::chrono::steady_clock::now();
 
   const bool is_heartbeat = (packet.type == 'H');

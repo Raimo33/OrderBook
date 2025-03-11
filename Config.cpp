@@ -32,4 +32,6 @@ Config load_config(void)
     .rewind_endpoint = parse_ip_and_port(getenv("REWIND_ENDPOINT_2")),
     .glimpse_endpoint = parse_ip_and_port(getenv("GLIMPSE_ENDPOINT_2"))
   };
+
+  return config;
 }

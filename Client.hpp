@@ -29,6 +29,6 @@ class Client
     uint8_t server_idx;
     std::unique_ptr<TcpHandler> tcp_handler;
     std::unique_ptr<UdpHandler> udp_handler;
-    const OrderBook order_book;
+    OrderBook order_book;
     const int epoll_fd;
 };

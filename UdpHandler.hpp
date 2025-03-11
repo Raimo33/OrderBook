@@ -26,14 +26,16 @@ class UdpHandler
   private:
 
     const ip_mreq create_mreq(const std::string_view bind_address) const noexcept;
-    const int create_socket(void) const noexcept;
+    int create_socket(void) const noexcept;
 
-    int sock_fd;
-    int timer_fd;
+    OrderBook *order_book;
     sockaddr_in multicast_address;
     sockaddr_in rewind_address;
     ip_mreq mreq;
-    OrderBook *order_book;
+    int sock_fd;
+    int timer_fd;
     std::chrono::time_point<std::chrono::steady_clock> last_incoming;
     //TODO simple queue circular buffer for packets O(1) insert and remove, O(nlog n) sorting. prefixed size (MAX_PACKETS_IN_FLIGHT)
 };
+
+#include "UdpHandler.inl"

@@ -18,16 +18,16 @@ class TcpHandler
 
     TcpHandler& operator=(const TcpHandler& other);
 
-    bool has_finished(void) const noexcept;
-    int  get_sock_fd(void) const noexcept;
-    int  get_timer_fd(void) const noexcept;
+    inline bool has_finished(void) const noexcept;
+    inline int  get_sock_fd(void) const noexcept;
+    inline int  get_timer_fd(void) const noexcept;
 
     void request_snapshot(const uint32_t event_mask);
     void handle_heartbeat_timeout(const uint32_t event_mask);
 
   private:
 
-    const int create_socket(void) const noexcept;
+    int create_socket(void) const noexcept;
 
     const SoupBinTCPPacket<LoginRequest>  create_login_request(const ClientConfig &client_conf) const noexcept;
     const SoupBinTCPPacket<LogoutRequest> create_logout_request(void) const noexcept;
@@ -39,14 +39,16 @@ class TcpHandler
     bool send_logout(void);
     bool send_hearbeat(void);
 
+    uint8_t state;
+    OrderBook *order_book;
     const sockaddr_in glimpse_address;
     const int sock_fd;
     const int timer_fd;
-    uint8_t state;
-    OrderBook *order_book;
     const SoupBinTCPPacket<LoginRequest>  login_request;
     const SoupBinTCPPacket<LogoutRequest> logout_request;
     const SoupBinTCPPacket<UserHeartbeat> user_heartbeat;
     std::chrono::time_point<std::chrono::steady_clock> last_outgoing;
     std::chrono::time_point<std::chrono::steady_clock> last_incoming;
 };
+
+#include "TcpHandler.inl"
