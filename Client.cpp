@@ -77,7 +77,7 @@ void Client::run(void)
   const int udp_timer_fd = udp_handler->get_timer_fd();
   
   {
-    while (tcp_handler->get_state() != TcpHandler::LOGGED_OUT)
+    while (tcp_handler->has_finished() == false)
     {
       std::array<epoll_event, 4> events;
       uint8_t n = epoll_wait(epoll_fd, events.data(), events.size(), -1);

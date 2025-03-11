@@ -18,11 +18,9 @@ class TcpHandler
 
     TcpHandler& operator=(const TcpHandler& other);
 
-    enum State : uint8_t { DISCONNECTED, CONNECTED, LOGIN_SENT, LOGIN_RECEIVED, SNAPSHOT_RECEIVED, LOGGED_OUT };
-
-    State get_state(void) const noexcept;
-    int   get_sock_fd(void) const noexcept;
-    int   get_timer_fd(void) const noexcept;
+    bool has_finished(void) const noexcept;
+    int  get_sock_fd(void) const noexcept;
+    int  get_timer_fd(void) const noexcept;
 
     void request_snapshot(const uint32_t event_mask);
     void handle_heartbeat_timeout(const uint32_t event_mask);
@@ -44,7 +42,7 @@ class TcpHandler
     const sockaddr_in glimpse_address;
     const int sock_fd;
     const int timer_fd;
-    State state;
+    uint8_t state;
     OrderBook *order_book;
     const SoupBinTCPPacket<LoginRequest>  login_request;
     const SoupBinTCPPacket<LogoutRequest> logout_request;

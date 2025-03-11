@@ -16,7 +16,7 @@
 using namespace std::chrono_literals;
 
 TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &server_conf, OrderBook &order_book) :
-  state(DISCONNECTED),
+  state(0),
   order_book(&order_book),
   last_outgoing(std::chrono::steady_clock::now()),
   last_incoming(std::chrono::steady_clock::now()),
@@ -98,7 +98,6 @@ TcpHandler &TcpHandler::operator=(const TcpHandler &other)
   return *this;
 }
 
-//TODO fix, epoll is edge triggered, keep a persistent variable in Client to store the event_mask
 COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
 {
   if (event_mask & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
@@ -106,19 +105,21 @@ COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
 
   switch (state)
   {
-    case DISCONNECTED:
+    case 0:
       state += connect(sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address));
-    case CONNECTED:
+    case 1:
       state += send_login();
-    case LOGIN_SENT:
+    case 2:
       state += recv_login();
-    case LOGIN_RECEIVED:
+    case 3:
       state += recv_snapshot();
-    case SNAPSHOT_RECEIVED:
+    case 4:
       state += send_logout();
-    case LOGGED_OUT:
+    case 5:
       break;
   }
+
+  UNREACHABLE;
 }
 
 void TcpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
@@ -131,10 +132,9 @@ void TcpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
     send_hearbeat();
 }
 
-inline TcpHandler::State TcpHandler::get_state(void) const noexcept { return state; }
-
-inline int TcpHandler::get_sock_fd(void)  const noexcept { return sock_fd; }
-inline int TcpHandler::get_timer_fd(void) const noexcept { return timer_fd; }
+inline bool TcpHandler::has_finished(void) const noexcept { return state == 5; }
+inline int  TcpHandler::get_sock_fd(void)  const noexcept { return sock_fd; }
+inline int  TcpHandler::get_timer_fd(void) const noexcept { return timer_fd; }
 
 COLD bool TcpHandler::send_login(void)
 {
