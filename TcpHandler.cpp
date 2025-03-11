@@ -17,6 +17,7 @@ using namespace std::chrono_literals;
 
 TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &server_conf, OrderBook &order_book) :
   state(0),
+  sequence_number(0),
   order_book(&order_book),
   glimpse_address(utils::create_address(server_conf.glimpse_endpoint.ip, server_conf.glimpse_endpoint.port)),
   sock_fd(create_socket()),
@@ -164,7 +165,11 @@ COLD bool TcpHandler::recv_login(void)
   const bool is_heartbeat = (packet.type == 'H');
   received_bytes -= (is_heartbeat * sizeof(SoupBinTCPPacket<ServerHeartbeat>));
 
-  //TODO interpret login response
+  const bool is_reject = (packet.type == 'J');
+  if (is_reject)
+    utils::throw_exception("Login rejected");
+  
+  sequence_number = utils::atoul(packet.body.sequence_number);
 
   return (received_bytes == total_size);
 }

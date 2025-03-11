@@ -6,7 +6,7 @@
 
 namespace utils
 {
-  COLD NEVER_INLINE void throw_exception(const std::string_view message)
+  [[noreturn]] COLD NEVER_INLINE void throw_exception(const std::string_view message)
   {
     throw std::runtime_error(std::string(message));
   }

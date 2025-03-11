@@ -40,6 +40,7 @@ class TcpHandler
     bool send_hearbeat(void);
 
     uint8_t state;
+    uint64_t sequence_number;
     OrderBook *order_book;
     const sockaddr_in glimpse_address;
     const int sock_fd;
