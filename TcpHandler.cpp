@@ -63,7 +63,7 @@ const SoupBinTCPPacket<UserHeartbeat> TcpHandler::create_user_heartbeat(void) co
 {
   constexpr SoupBinTCPPacket<UserHeartbeat> packet = {
     .length = sizeof(packet.type),
-    .type = 'H'
+    .type = 'R'
   };
 
   return packet;
@@ -138,8 +138,8 @@ inline int  TcpHandler::get_timer_fd(void) const noexcept { return timer_fd; }
 
 COLD bool TcpHandler::send_login(void)
 {
-  constexpr uint32_t total_size = sizeof(login_request);
   static const char *buffer = reinterpret_cast<const char *>(&login_request);
+  constexpr uint32_t total_size = sizeof(buffer);
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
@@ -148,20 +148,24 @@ COLD bool TcpHandler::send_login(void)
   return (sent_bytes == total_size);
 }
 
-//TODO fix, discard if heartbeat
 COLD bool TcpHandler::recv_login(void)
 {
-  constexpr uint32_t total_size = sizeof(SoupBinTCPPacket<LoginAcceptance>);
-  static char buffer[total_size] = {0};
+  static SoupBinTCPPacket<LoginAcceptance> packet;
+  static char *buffer = reinterpret_cast<char *>(&packet);
+  constexpr uint32_t total_size = sizeof(packet);
   static uint32_t received_bytes = 0;
 
   received_bytes += utils::try_tcp_recv(sock_fd, buffer + received_bytes, total_size - received_bytes);
   last_incoming = std::chrono::steady_clock::now();
 
+  const bool is_heartbeat = (packet.type == 'H');
+  received_bytes -= (is_heartbeat * sizeof(SoupBinTCPPacket<ServerHeartbeat>));
+
+  //TODO interpret login response
+
   return (received_bytes == total_size);
 }
 
-//TODO fix, discard if heartbeat
 bool TcpHandler::recv_snapshot(void)
 {
   //TODO manage sequences, there are many packets to receive across this kind of calls
@@ -171,8 +175,8 @@ bool TcpHandler::recv_snapshot(void)
 
 COLD bool TcpHandler::send_logout(void)
 {
-  constexpr uint32_t total_size = sizeof(logout_request);
   static const char *buffer = reinterpret_cast<const char *>(&logout_request);
+  constexpr uint32_t total_size = sizeof(buffer);
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
@@ -182,8 +186,8 @@ COLD bool TcpHandler::send_logout(void)
 }
 bool TcpHandler::send_hearbeat(void)
 {
-  constexpr uint32_t total_size = sizeof(user_heartbeat);
   static const char *buffer = reinterpret_cast<const char *>(&user_heartbeat);
+  constexpr uint32_t total_size = sizeof(buffer);
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
