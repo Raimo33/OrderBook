@@ -18,11 +18,11 @@ TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &serv
   order_book(&order_book),
   last_outgoing(std::chrono::steady_clock::now()),
   last_incoming(std::chrono::steady_clock::now()),
-  glimpse_address(init_glimpse_address(server_conf)),
-  login_request(init_login_request(client_conf)),
-  logout_request(init_logout_request()),
-  client_heartbeat(init_client_heartbeat()),
-  sock_fd(init_socket())
+  glimpse_address(utils::create_address(server_conf.glimpse_endpoint.ip, server_conf.glimpse_endpoint.port)),
+  login_request(create_login_request(client_conf)),
+  logout_request(create_logout_request()),
+  client_heartbeat(create_client_heartbeat()),
+  sock_fd(create_socket())
 {
   sockaddr_in bind_addr;
   bind_addr.sin_family = AF_INET;
@@ -32,31 +32,22 @@ TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &serv
   bind(sock_fd, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr));
 }
 
-const sockaddr_in TcpHandler::init_glimpse_address(const ServerConfig &server_conf)
-{
-  return {
-    .sin_family = AF_INET,
-    .sin_port = htons(server_conf.glimpse_endpoint.port),
-    .sin_addr = { .s_addr = inet_addr(server_conf.glimpse_endpoint.ip.c_str()) }
-  };
-}
-
-const SoupBinTCPPacket<LoginRequest> TcpHandler::init_login_request(const ClientConfig &client_conf)
+const SoupBinTCPPacket<LoginRequest> TcpHandler::create_login_request(const ClientConfig &client_conf) const
 {
   //TODO
 }
 
-const SoupBinTCPPacket<LogoutRequest> TcpHandler::init_logout_request(void)
+const SoupBinTCPPacket<LogoutRequest> TcpHandler::create_logout_request(void) const
 {
-  //TODO
+  //TODO (constexpr?)
 }
 
-const SoupBinTCPPacket<UserHeartbeat> TcpHandler::init_client_heartbeat(void)
+const SoupBinTCPPacket<UserHeartbeat> TcpHandler::create_client_heartbeat(void) const
 {
-  //TODO
+  //TODO (constexpr?)
 }
 
-const int TcpHandler::init_socket(void)
+const int TcpHandler::create_socket(void) const
 {
   const int sock_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
@@ -81,9 +72,9 @@ TcpHandler &TcpHandler::operator=(const TcpHandler &other)
   order_book = other.order_book;
   last_outgoing = other.last_outgoing;
   last_incoming = other.last_incoming;
+
+  return *this;
 }
-
-
 
 COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
 {

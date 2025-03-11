@@ -15,13 +15,16 @@ class UdpHandler
 
     UdpHandler &operator=(const UdpHandler &other);
 
-    int get_fd(void) const;
+    int get_sock_fd(void) const;
 
     void accumulate_updates(const uint32_t event_mask);
     void process_updates(const uint32_t event_mask);
 
   private:
-    int fd;
+    const ip_mreq create_mreq(const std::string_view bind_address) const;
+    const int create_socket(void) const;
+
+    int sock_fd;
     sockaddr_in multicast_address;
     sockaddr_in rewind_address;
     ip_mreq mreq;

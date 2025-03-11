@@ -15,14 +15,7 @@ class TcpHandler
 
     TcpHandler& operator=(const TcpHandler& other);
 
-    enum State : uint8_t {
-      DISCONNECTED      = 0,
-      CONNECTED         = 1,
-      LOGIN_SENT        = 2,
-      LOGIN_RECEIVED    = 3,
-      SNAPSHOT_RECEIVED = 4,
-      LOGGED_OUT        = 5
-    };
+    enum State : uint8_t { DISCONNECTED, CONNECTED, LOGIN_SENT, LOGIN_RECEIVED, SNAPSHOT_RECEIVED, LOGGED_OUT };
 
     State get_state(void) const;
     int get_fd(void) const;
@@ -30,11 +23,10 @@ class TcpHandler
     void request_snapshot(const uint32_t event_mask);
 
   private:
-    const sockaddr_in init_glimpse_address(const ServerConfig &server_conf);
-    const int init_socket(void);
-    const SoupBinTCPPacket<LoginRequest> init_login_request(const ClientConfig &client_conf);
-    const SoupBinTCPPacket<LogoutRequest> init_logout_request(void);
-    const SoupBinTCPPacket<UserHeartbeat> init_client_heartbeat(void);
+    const int create_socket(void) const;
+    const SoupBinTCPPacket<LoginRequest> create_login_request(const ClientConfig &client_conf) const;
+    const SoupBinTCPPacket<LogoutRequest> create_logout_request(void) const;
+    const SoupBinTCPPacket<UserHeartbeat> create_client_heartbeat(void) const;
 
     bool send_login(const uint32_t event_mask);
     bool recv_login(const uint32_t event_mask);
