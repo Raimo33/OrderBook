@@ -47,7 +47,7 @@ UdpHandler::~UdpHandler(void)
   close(sock_fd);
 }
 
-UdpHandler &UdpHandler::operator=(UdpHandler &other)
+UdpHandler &UdpHandler::operator=(const UdpHandler &other)
 {
    if (this == &other)
      return *this;
@@ -63,6 +63,8 @@ UdpHandler &UdpHandler::operator=(UdpHandler &other)
 }
 
 inline int UdpHandler::get_sock_fd(void) const { return sock_fd; }
+
+//TODO redundancy, could have accumulate as reader and process as writer
 
 void UdpHandler::accumulate_updates(const uint32_t event_mask)
 {
