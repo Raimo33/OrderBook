@@ -4,10 +4,12 @@
 #include <unistd.h>
 #include <stdexcept>
 #include <chrono>
+#include <sys/timerfd.h>
+#include <cstring>
 
 #include "TcpHandler.hpp"
 #include "Config.hpp"
-#include "Packets.hpp"
+#include "TcpPackets.hpp"
 #include "utils.hpp"
 #include "macros.hpp"
 
@@ -21,8 +23,9 @@ TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &serv
   glimpse_address(utils::create_address(server_conf.glimpse_endpoint.ip, server_conf.glimpse_endpoint.port)),
   login_request(create_login_request(client_conf)),
   logout_request(create_logout_request()),
-  client_heartbeat(create_client_heartbeat()),
-  sock_fd(create_socket())
+  user_heartbeat(create_user_heartbeat()),
+  sock_fd(create_socket()),
+  timer_fd(utils::create_timer(50ms))
 {
   sockaddr_in bind_addr;
   bind_addr.sin_family = AF_INET;
@@ -32,22 +35,41 @@ TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &serv
   bind(sock_fd, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr));
 }
 
-const SoupBinTCPPacket<LoginRequest> TcpHandler::create_login_request(const ClientConfig &client_conf) const
+const SoupBinTCPPacket<LoginRequest> TcpHandler::create_login_request(const ClientConfig &client_conf) const noexcept
 {
-  //TODO
+  SoupBinTCPPacket<LoginRequest> packet;
+
+  packet.length = sizeof(LoginRequest) + sizeof(packet.type);
+  packet.type = 'L';
+  std::memcpy(packet.body.username, client_conf.username.c_str(), sizeof(packet.body.username));
+  std::memcpy(packet.body.password, client_conf.password.c_str(), sizeof(packet.body.password));
+  std::memset(packet.body.requested_session, ' ', sizeof(packet.body.requested_session));
+  packet.body.requested_sequence_number[0] = '1';
+
+  return packet;
 }
 
-const SoupBinTCPPacket<LogoutRequest> TcpHandler::create_logout_request(void) const
+const SoupBinTCPPacket<LogoutRequest> TcpHandler::create_logout_request(void) const noexcept
 {
-  //TODO (constexpr?)
+  constexpr SoupBinTCPPacket<LogoutRequest> packet = {
+    .length = sizeof(packet.type),
+    .type = 'O'
+  };
+
+  return packet;
 }
 
-const SoupBinTCPPacket<UserHeartbeat> TcpHandler::create_client_heartbeat(void) const
+const SoupBinTCPPacket<UserHeartbeat> TcpHandler::create_user_heartbeat(void) const noexcept
 {
-  //TODO (constexpr?)
+  constexpr SoupBinTCPPacket<UserHeartbeat> packet = {
+    .length = sizeof(packet.type),
+    .type = 'H'
+  };
+
+  return packet;
 }
 
-const int TcpHandler::create_socket(void) const
+const int TcpHandler::create_socket(void) const noexcept
 {
   const int sock_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
 
@@ -101,49 +123,77 @@ COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
     case LOGGED_OUT:
       break;
   }
-
-  auto now = std::chrono::steady_clock::now();
-  if (last_outgoing + 1s >= now)
-    send_hearbeat(event_mask);
-  if (last_incoming + 50ms >= now)
-    utils::throw_exception("Server timeout");
 }
 
-inline TcpHandler::State TcpHandler::get_state(void) const { return state; }
-
-inline int TcpHandler::get_fd(void) const { return fd; }
-
-bool TcpHandler::send_login(const uint32_t event_mask)
+void TcpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
 {
-  utils::assert(event_mask & EPOLLOUT, "Socket not writeable");
+  const auto now = std::chrono::steady_clock::now();
 
-  return true;
+  if (now - last_incoming > 50ms)
+    utils::throw_exception("Server timeout");
+  if (now - last_outgoing > 1s)
+    send_hearbeat();
+}
+
+inline TcpHandler::State TcpHandler::get_state(void) const noexcept { return state; }
+
+inline int TcpHandler::get_sock_fd(void)  const noexcept { return sock_fd; }
+inline int TcpHandler::get_timer_fd(void) const noexcept { return timer_fd; }
+
+COLD bool TcpHandler::send_login(const uint32_t event_mask)
+{
+  constexpr uint32_t total_size = sizeof(login_request);
+  static const char *buffer = reinterpret_cast<const char *>(&login_request);
+  static uint32_t sent_bytes = 0;
+  
+  utils::assert(event_mask & EPOLLOUT, "Socket not writeable");
+  
+  sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
+
+  return (sent_bytes == total_size);
 }
 
 COLD bool TcpHandler::recv_login(const uint32_t event_mask)
 {
+  constexpr uint32_t total_size = sizeof(SoupBinTCPPacket<LoginAcceptance>);
+  static char buffer[total_size] = {0};
+  static uint32_t received_bytes = 0;
+
   utils::assert(event_mask & EPOLLIN, "Socket not readable");
 
-  return true;
+  received_bytes += utils::try_tcp_recv(sock_fd, buffer + received_bytes, total_size - received_bytes);
+
+  return (received_bytes == total_size);
 }
 
 bool TcpHandler::recv_snapshot(const uint32_t event_mask)
 {
   utils::assert(event_mask & EPOLLIN, "Socket not readable");
 
+  //TODO manage sequences, there are many packets to receive across this kind of calls
+
   return true;
 }
 
 COLD bool TcpHandler::send_logout(const uint32_t event_mask)
 {
+  constexpr uint32_t total_size = sizeof(logout_request);
+  static const char *buffer = reinterpret_cast<const char *>(&logout_request);
+  static uint32_t sent_bytes = 0;
+
   utils::assert(event_mask & EPOLLOUT, "Socket not writeable");
 
-  //TODO sends shutdown, does not close the socket
-  return true;
+  sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
+
+  return (sent_bytes == total_size);
 }
-bool TcpHandler::send_hearbeat(const uint32_t event_mask)
+bool TcpHandler::send_hearbeat(void)
 {
-  utils::assert(event_mask & EPOLLOUT, "Socket not writeable");
+  constexpr uint32_t total_size = sizeof(user_heartbeat);
+  static const char *buffer = reinterpret_cast<const char *>(&user_heartbeat);
+  static uint32_t sent_bytes = 0;
 
-  return true;
+  sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
+
+  return (sent_bytes == total_size);
 }

@@ -3,6 +3,8 @@
 #include <array>
 #include <chrono>
 
+#include "TcpPackets.hpp"
+
 class OrderBook;
 class ClientConfig;
 class ServerConfig;
@@ -10,6 +12,7 @@ class ServerConfig;
 class TcpHandler
 {
   public:
+
     TcpHandler(const ClientConfig &client_conf, const ServerConfig &server_conf, OrderBook &order_book);
     ~TcpHandler(void);
 
@@ -17,30 +20,35 @@ class TcpHandler
 
     enum State : uint8_t { DISCONNECTED, CONNECTED, LOGIN_SENT, LOGIN_RECEIVED, SNAPSHOT_RECEIVED, LOGGED_OUT };
 
-    State get_state(void) const;
-    int get_fd(void) const;
+    State get_state(void) const noexcept;
+    int get_sock_fd(void) const noexcept;
+    int get_timer_fd(void) const noexcept;
 
     void request_snapshot(const uint32_t event_mask);
+    void handle_heartbeat_timeout(const uint32_t event_mask);
 
   private:
-    const int create_socket(void) const;
-    const SoupBinTCPPacket<LoginRequest> create_login_request(const ClientConfig &client_conf) const;
-    const SoupBinTCPPacket<LogoutRequest> create_logout_request(void) const;
-    const SoupBinTCPPacket<UserHeartbeat> create_client_heartbeat(void) const;
+
+    const int create_socket(void) const noexcept;
+
+    const SoupBinTCPPacket<LoginRequest> create_login_request(const ClientConfig &client_conf) const noexcept;
+    const SoupBinTCPPacket<LogoutRequest> create_logout_request(void) const noexcept;
+    const SoupBinTCPPacket<UserHeartbeat> create_user_heartbeat(void) const noexcept;
 
     bool send_login(const uint32_t event_mask);
     bool recv_login(const uint32_t event_mask);
     bool recv_snapshot(const uint32_t event_mask);
     bool send_logout(const uint32_t event_mask);
-    bool send_hearbeat(const uint32_t event_mask);
+    bool send_hearbeat(void);
 
     const sockaddr_in glimpse_address;
     const int sock_fd;
+    const int timer_fd;
     State state;
     OrderBook *order_book;
     const SoupBinTCPPacket<LoginRequest> login_request;
     const SoupBinTCPPacket<LogoutRequest> logout_request;
-    const SoupBinTCPPacket<UserHeartbeat> client_heartbeat;
+    const SoupBinTCPPacket<UserHeartbeat> user_heartbeat;
     std::chrono::time_point<std::chrono::steady_clock> last_outgoing;
     std::chrono::time_point<std::chrono::steady_clock> last_incoming;
 };

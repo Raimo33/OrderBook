@@ -1,11 +1,15 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <sys/epoll.h>
+#include <sys/timerfd.h>
 
 #include "UdpHandler.hpp"
 #include "Config.hpp"
+#include "UdpPackets.hpp"
 #include "utils.hpp"
 #include "macros.hpp"
+
+using namespace std::chrono_literals;
 
 UdpHandler::UdpHandler(const ClientConfig &client_conf, const ServerConfig &server_conf, OrderBook &order_book) :
   order_book(&order_book),
@@ -13,7 +17,8 @@ UdpHandler::UdpHandler(const ClientConfig &client_conf, const ServerConfig &serv
   multicast_address(utils::create_address(server_conf.multicast_endpoint.ip, server_conf.multicast_endpoint.port)),
   rewind_address(utils::create_address(server_conf.rewind_endpoint.ip, server_conf.rewind_endpoint.port)),
   mreq(create_mreq(client_conf.bind_address)),
-  sock_fd(create_socket())
+  sock_fd(create_socket()),
+  timer_fd(utils::create_timer(50ms))
 {
   sockaddr_in bind_addr;
   bind_addr.sin_family = AF_INET;
@@ -23,7 +28,7 @@ UdpHandler::UdpHandler(const ClientConfig &client_conf, const ServerConfig &serv
   bind(sock_fd, reinterpret_cast<const sockaddr *>(&bind_addr), sizeof(bind_addr));
 }
 
-const ip_mreq UdpHandler::create_mreq(const std::string_view bind_address) const
+const ip_mreq UdpHandler::create_mreq(const std::string_view bind_address) const noexcept
 {
   return {
     .imr_multiaddr = multicast_address.sin_addr,
@@ -31,7 +36,7 @@ const ip_mreq UdpHandler::create_mreq(const std::string_view bind_address) const
   };
 }
 
-const int UdpHandler::create_socket(void) const
+const int UdpHandler::create_socket(void) const noexcept
 {
   const int sock_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
 
@@ -57,12 +62,13 @@ UdpHandler &UdpHandler::operator=(const UdpHandler &other)
   rewind_address = other.rewind_address;
   mreq = other.mreq;
   sock_fd = other.sock_fd;
-  last_received = other.last_received;
+  last_incoming = other.last_incoming;
 
   return *this;
 }
 
-inline int UdpHandler::get_sock_fd(void) const { return sock_fd; }
+inline int UdpHandler::get_sock_fd(void)  const noexcept { return sock_fd; }
+inline int UdpHandler::get_timer_fd(void) const noexcept { return timer_fd; }
 
 //TODO redundancy, could have accumulate as reader and process as writer
 
@@ -71,6 +77,7 @@ void UdpHandler::accumulate_updates(const uint32_t event_mask)
   if (event_mask & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
     utils::throw_exception("Error in udp socket");
 
+  //TODO state machine, use connect() to bind to the multicast address because i use normal send()
   {
     //read packet
     //put in queue (by sorting by sequence number)
@@ -87,4 +94,12 @@ void UdpHandler::process_updates(const uint32_t event_mask)
     //put in queue (by sorting by sequence number)
     //empty the queue as long as you extract packets in order
   }
+}
+
+void UdpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
+{
+  const auto now = std::chrono::steady_clock::now();
+
+  if (now - last_incoming > 50ms)
+    utils::throw_exception("Server timeout");
 }
