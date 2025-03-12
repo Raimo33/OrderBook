@@ -13,6 +13,12 @@ struct SoupBinTCPPacket
   T body;
 };
 
+template <typename T>
+struct MoldUDP64Packet
+{
+  //TODO
+};
+
 struct EmptyBody {};
 
 struct LoginRequest
@@ -34,9 +40,17 @@ struct LoginReject
   char reject_reason_code;
 };
 
-struct Data
+struct SequencedData
 {
-  std::vector<char> message;
+  //message length
+  //message timestamp (optional)
+  //one message (timestamp, order execution, etc)
+  //message length
+  //message timestamp (optional)
+  //one message (timestamp, order execution, etc)
+  //message length
+  //message timestamp (optional)
+  //one message (timestamp, order execution, etc)
 };
 
 struct SnapshotCompletion

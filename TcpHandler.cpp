@@ -109,20 +109,25 @@ COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
   switch (state)
   {
     case 0:
-      state += connect(sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address));
-      [[fallthrough]];
+      if (!connect(sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address)))
+        break;
+      state++;
     case 1:
-      state += send_login();
-      [[fallthrough]];
+      if (!send_login())
+        break;
+      state++;
     case 2:
-      state += recv_login();
-      [[fallthrough]];
+      if (!recv_login())
+        break;
+      state++;
     case 3:
-      state += recv_snapshot();
-      [[fallthrough]];
+      if (!recv_snapshot())
+        break;
+      state++;
     case 4:
-      state += send_logout();
-      [[fallthrough]];
+      if (!send_logout())
+        break;
+      state++;
     case 5:
       break;
   }
@@ -134,9 +139,9 @@ void TcpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
 {
   const auto now = std::chrono::steady_clock::now();
 
-  if (now - last_incoming > 50ms)
+  if (UNLIKELY(now - last_incoming > 50ms))
     utils::throw_exception("Server timeout");
-  if (now - last_outgoing > 1s)
+  if (UNLIKELY(now - last_outgoing > 1s))
     send_hearbeat();
 }
 
@@ -147,9 +152,12 @@ COLD bool TcpHandler::send_login(void)
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
-  last_outgoing = std::chrono::steady_clock::now();
 
-  return (sent_bytes == total_size);
+  const auto elapsed_time = std::chrono::steady_clock::now() - last_outgoing;
+  const bool success = (sent_bytes == total_size);
+  last_outgoing += success * elapsed_time;
+
+  return success;
 }
 
 COLD bool TcpHandler::recv_login(void)
@@ -160,25 +168,27 @@ COLD bool TcpHandler::recv_login(void)
   static uint32_t received_bytes = 0;
 
   received_bytes += utils::try_recv(sock_fd, buffer + received_bytes, total_size - received_bytes);
-  last_incoming = std::chrono::steady_clock::now();
-
-  const bool is_heartbeat = (packet.type == 'H');
-  received_bytes -= (is_heartbeat * sizeof(SoupBinTCPPacket<ServerHeartbeat>));
-
-  const bool is_reject = (packet.type == 'J');
-  if (is_reject)
-    utils::throw_exception("Login rejected");
   
+  if (packet.type == 'J')
+    utils::throw_exception("Login rejected");
+
+  const auto elapsed_time = std::chrono::steady_clock::now() - last_incoming;
+  handle_incoming_heartbeat(packet, elapsed_time);
+  const bool success = (received_bytes == total_size);
+  last_incoming += success * elapsed_time;
+
   sequence_number = utils::atoul(packet.body.sequence_number);
 
-  return (received_bytes == total_size);
+  return success;
 }
 
 bool TcpHandler::recv_snapshot(void)
 {
+  
   //TODO manage sequences, there are many packets to receive across this kind of calls
+  //TODO until snapshot completion
 
-  return true;
+  return is_snapshot_complete;
 }
 
 COLD bool TcpHandler::send_logout(void)
@@ -188,10 +198,14 @@ COLD bool TcpHandler::send_logout(void)
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
-  last_incoming = std::chrono::steady_clock::now();
 
-  return (sent_bytes == total_size);
+  const auto elapsed_time = std::chrono::steady_clock::now() - last_outgoing;
+  const bool success = (sent_bytes == total_size);
+  last_outgoing += success * elapsed_time;
+
+  return success;
 }
+
 bool TcpHandler::send_hearbeat(void)
 {
   static const char *buffer = reinterpret_cast<const char *>(&user_heartbeat);
@@ -199,7 +213,19 @@ bool TcpHandler::send_hearbeat(void)
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
-  last_outgoing = std::chrono::steady_clock::now();
 
-  return (sent_bytes == total_size);
+  const auto elapsed_time = std::chrono::steady_clock::now() - last_outgoing;
+  const bool success = (sent_bytes == total_size);
+  last_outgoing += success * elapsed_time;
+
+  return success;
+}
+
+void TcpHandler::handle_incoming_heartbeat(const SoupBinTCPPacket<ServerHeartbeat> &packet, const std::chrono::steady_clock::duration &elapsed_time) noexcept
+{
+  const bool is_heartbeat = (packet.type == 'H');
+  received_bytes -= is_heartbeat * sizeof(SoupBinTCPPacket<ServerHeartbeat>);
+  packet.length *= !is_heartbeat;
+  packet.type *= !is_heartbeat;
+  last_incoming += is_heartbeat * elapsed_time;
 }

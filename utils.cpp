@@ -39,4 +39,20 @@ namespace utils
 
     return timer_fd;
   }
+
+  HOT uint64_t atoul(const std::string_view str)
+  {
+    uint64_t result = 0;
+    bool valid  = 1;
+
+    for (const char c : str)
+    {
+      const uint8_t digit = c - '0';
+      const bool is_digit = (digit < 10);
+      result *= 10;
+      valid &= is_digit;
+    }
+
+    return result * valid;
+  }
 }

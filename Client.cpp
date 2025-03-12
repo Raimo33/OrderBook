@@ -34,7 +34,7 @@ void Client::create_handlers(void)
 
 void Client::bind_epoll(void) const noexcept
 {
-  constexpr uint32_t network_events_mask = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP | EPOLLET;
+  constexpr uint32_t network_events_mask = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
   constexpr uint32_t timer_events_mask = EPOLLIN | EPOLLET;
 
   const int tcp_sock_fd = tcp_handler->get_sock_fd();

@@ -39,6 +39,8 @@ class TcpHandler
     bool send_logout(void);
     bool send_hearbeat(void);
 
+    void handle_incoming_heartbeat(const SoupBinTCPPacket<LoginAcceptance> &packet, const std::chrono::duration<double> &time_difference) noexcept;
+
     uint8_t state;
     uint64_t sequence_number;
     OrderBook *order_book;
