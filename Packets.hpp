@@ -42,14 +42,8 @@ struct LoginReject
 
 struct SequencedData
 {
-  //message length
-  //message timestamp (optional)
   //one message (timestamp, order execution, etc)
-  //message length
-  //message timestamp (optional)
   //one message (timestamp, order execution, etc)
-  //message length
-  //message timestamp (optional)
   //one message (timestamp, order execution, etc)
 };
 
