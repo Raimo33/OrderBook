@@ -25,7 +25,7 @@ namespace utils
 
   COLD int create_timer(const std::chrono::milliseconds interval)
   {
-    const int timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+    const int timer_fd = timerfd_create(CLOCK_MONOTONIC, 0);
 
     const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(interval);
     const auto nanoseconds = interval - seconds;

@@ -29,7 +29,7 @@ class TcpHandler
 
     int create_socket(void) const noexcept;
 
-    const SoupBinTCPPacket<LoginRequest>  create_login_request(const ClientConfig &client_conf) const noexcept;
+    const SoupBinTCPPacket  create_login_request(const ClientConfig &client_conf) const noexcept;
 
     bool send_login(void);
     bool recv_login(void);
@@ -43,9 +43,7 @@ class TcpHandler
     const sockaddr_in glimpse_address;
     const int sock_fd;
     const int timer_fd;
-    const SoupBinTCPPacket<LoginRequest>  login_request;
-    const SoupBinTCPPacket<LogoutRequest> logout_request;
-    const SoupBinTCPPacket<UserHeartbeat> user_heartbeat;
+    const SoupBinTCPPacket login_request;
     std::chrono::time_point<std::chrono::steady_clock> last_outgoing;
     std::chrono::time_point<std::chrono::steady_clock> last_incoming;
 };
