@@ -30,16 +30,12 @@ class TcpHandler
     int create_socket(void) const noexcept;
 
     const SoupBinTCPPacket<LoginRequest>  create_login_request(const ClientConfig &client_conf) const noexcept;
-    const SoupBinTCPPacket<LogoutRequest> create_logout_request(void) const noexcept;
-    const SoupBinTCPPacket<UserHeartbeat> create_user_heartbeat(void) const noexcept;
 
     bool send_login(void);
     bool recv_login(void);
     bool recv_snapshot(void);
     bool send_logout(void);
     bool send_hearbeat(void);
-
-    void handle_incoming_heartbeat(const SoupBinTCPPacket<LoginAcceptance> &packet, const std::chrono::duration<double> &time_difference) noexcept;
 
     uint8_t state;
     uint64_t sequence_number;

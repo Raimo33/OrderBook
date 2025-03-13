@@ -23,8 +23,6 @@ TcpHandler::TcpHandler(const ClientConfig &client_conf, const ServerConfig &serv
   sock_fd(create_socket()),
   timer_fd(utils::create_timer(50ms)),
   login_request(create_login_request(client_conf)),
-  logout_request(create_logout_request()),
-  user_heartbeat(create_user_heartbeat()),
   last_outgoing(std::chrono::steady_clock::now()),
   last_incoming(std::chrono::steady_clock::now())
 {
@@ -40,7 +38,8 @@ const SoupBinTCPPacket<LoginRequest> TcpHandler::create_login_request(const Clie
 {
   SoupBinTCPPacket<LoginRequest> packet;
 
-  packet.header.length = sizeof(packet.type) + sizeof(packet.body);
+//TODO capire se il type fa parte dell'header in SoupBin
+  packet.header.length = sizeof(packet.header.type) + sizeof(packet.body);
   packet.header.type = 'L';
 
   std::memcpy(packet.body.username, client_conf.username.c_str(), sizeof(packet.body.username));
@@ -48,29 +47,6 @@ const SoupBinTCPPacket<LoginRequest> TcpHandler::create_login_request(const Clie
   std::memset(packet.body.requested_session, ' ', sizeof(packet.body.requested_session));
   packet.body.requested_sequence_number[0] = '1';
 
-  return packet;
-}
-
-const SoupBinTCPPacket<LogoutRequest> TcpHandler::create_logout_request(void) const noexcept
-{
-  constexpr SoupBinTCPPacket<LogoutRequest> packet = {
-    .header = {
-      .length = 1,
-      .type = 'O'
-    }
-  };
-
-  return packet;
-}
-
-const SoupBinTCPPacket<UserHeartbeat> TcpHandler::create_user_heartbeat(void) const noexcept
-{
-  constexpr SoupBinTCPPacket<UserHeartbeat> packet = {
-    .header = {
-      .length = 1,
-      .type = 'R'
-    }
-  };
   return packet;
 }
 
@@ -175,7 +151,13 @@ COLD bool TcpHandler::recv_login(void)
     utils::throw_exception("Login rejected");
 
   const auto elapsed_time = std::chrono::steady_clock::now() - last_incoming;
-  handle_incoming_heartbeat(packet, elapsed_time);
+  const bool is_heartbeat = (packet.header.type == 'H');
+
+  received_bytes -= is_heartbeat * sizeof(SoupBinTCPPacket<ServerHeartbeat>);
+  packet.header.length *= !is_heartbeat;
+  packet.header.type *= !is_heartbeat;
+  last_incoming += is_heartbeat * elapsed_time;
+
   const bool success = (received_bytes == total_size);
   last_incoming += success * elapsed_time;
 
@@ -200,6 +182,13 @@ bool TcpHandler::recv_snapshot(void)
 
 COLD bool TcpHandler::send_logout(void)
 {
+  constexpr SoupBinTCPPacket<LogoutRequest> logout_request = {
+    .header = {
+      .length = 1,
+      .type = 'O',
+    },
+    .body = {},
+  };
   static const char *buffer = reinterpret_cast<const char *>(&logout_request);
   constexpr uint32_t total_size = sizeof(buffer);
   static uint32_t sent_bytes = 0;
@@ -215,6 +204,13 @@ COLD bool TcpHandler::send_logout(void)
 
 bool TcpHandler::send_hearbeat(void)
 {
+  constexpr SoupBinTCPPacket<UserHeartbeat> user_heartbeat = {
+    .header = {
+      .length = 1,
+      .type = 'H',
+    },
+    .body = {},
+  };
   static const char *buffer = reinterpret_cast<const char *>(&user_heartbeat);
   constexpr uint32_t total_size = sizeof(buffer);
   static uint32_t sent_bytes = 0;
@@ -226,13 +222,4 @@ bool TcpHandler::send_hearbeat(void)
   last_outgoing += success * elapsed_time;
 
   return success;
-}
-
-void TcpHandler::handle_incoming_heartbeat(const SoupBinTCPPacket<ServerHeartbeat> &packet, const std::chrono::steady_clock::duration &elapsed_time) noexcept
-{
-  const bool is_heartbeat = (packet.header.type == 'H');
-  received_bytes -= is_heartbeat * sizeof(SoupBinTCPPacket<ServerHeartbeat>);
-  packet.header.length *= !is_heartbeat;
-  packet.header.type *= !is_heartbeat;
-  last_incoming += is_heartbeat * elapsed_time;
 }
