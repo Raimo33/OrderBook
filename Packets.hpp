@@ -187,6 +187,3 @@ struct MessageBlock
 };
 
 #pragma pack(pop)
-
-template <typename BodyType>
-constexpr uint32_t soupbin_tcp_packet_size = sizeof(SoupBinTCPPacket::length) + sizeof(SoupBinTCPPacket::body.type) + sizeof(BodyType);

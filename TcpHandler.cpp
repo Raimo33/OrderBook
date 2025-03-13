@@ -128,7 +128,7 @@ void TcpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
 COLD bool TcpHandler::send_login(void)
 {
   static const char *buffer = reinterpret_cast<const char *>(&login_request);
-  constexpr uint32_t total_size = soupbin_tcp_packet_size<SoupBinTCPPacket::Body::LoginRequest>;
+  constexpr uint32_t total_size = sizeof(login_request.length) + sizeof(login_request.body.type) + sizeof(login_request.body.login_request);
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
@@ -141,35 +141,7 @@ COLD bool TcpHandler::send_login(void)
 
 COLD bool TcpHandler::recv_login(void)
 {
-  static SoupBinTCPPacket packet;
-  static char *buffer = reinterpret_cast<char *>(&packet);
-  constexpr uint32_t total_size = soupbin_tcp_packet_size<SoupBinTCPPacket::Body::LoginAcceptance>;
-  constexpr uint8_t minimum_size = sizeof(packet.length) + sizeof(packet.body.type);
-  static uint32_t received_bytes = 0;
-
-  received_bytes += utils::try_recv(sock_fd, buffer + received_bytes, total_size - received_bytes);
-  if (received_bytes < minimum_size)
-    return false;
-
-  switch (packet.body.type)
-  {
-    case 'H':
-      constexpr uint8_t heartbeat_size = minimum_size;
-      std::memmove(buffer, buffer + heartbeat_size, total_size - heartbeat_size);
-      received_bytes -= heartbeat_size;
-      last_incoming = std::chrono::steady_clock::now();
-      return false;
-    case 'A':
-      if (received_bytes < total_size)
-        return false;
-      sequence_number = utils::atoul(packet.body.login_acceptance.sequence_number);
-      last_incoming = std::chrono::steady_clock::now();
-      return true;
-    case 'J':
-      utils::throw_exception("Login rejected");
-    default:
-      utils::throw_exception("Unexpected packet during login");
-  }
+  //TODO sequential state machine. read length and type first. then switch case and read body. read <body.length> bytes
 }
 
 bool TcpHandler::recv_snapshot(void)
