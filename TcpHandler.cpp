@@ -88,25 +88,20 @@ COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
   switch (state)
   {
     case 0:
-      if (!connect(sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address)))
-        break;
-      state++;
+      state += connect(sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address));
+      break;
     case 1:
-      if (!send_login())
-        break;
-      state++;
+      state += send_login();
+      break;
     case 2:
-      if (!recv_login())
-        break;
-      state++;
+      state += recv_login();
+      break;
     case 3:
-      if (!recv_snapshot())
-        break;
-      state++;
+      state += recv_snapshot();
+      break;
     case 4:
-      if (!send_logout())
-        break;
-      state++;
+      state += send_logout();
+      break;
     default:
       return;
   }
@@ -141,18 +136,66 @@ COLD bool TcpHandler::send_login(void)
 
 COLD bool TcpHandler::recv_login(void)
 {
-  //TODO sequential state machine. read length and type first. then switch case and read body. read <body.length> bytes
+  static uint8_t state = 0;
+  static SoupBinTCPPacket packet;
+  static uint16_t bytes_read = 0;
+
+  switch (state)
+  {
+    case 0:
+      state += read_header(packet);
+      break;
+    case 1:
+      switch (packet.body.type)
+      {
+        case 'H':
+          last_incoming = std::chrono::steady_clock::now();
+          return false;
+        case 'J':
+          utils::throw_exception("Login rejected");
+        case 'A':
+          constexpr uint8_t body_size = sizeof(SoupBinTCPPacket::Body::LoginAcceptance);
+          bytes_read += utils::try_recv(sock_fd, reinterpret_cast<char *>(&packet.body.login_acceptance) + bytes_read, body_size - bytes_read);
+          sequence_number = utils::atoul(packet.body.login_acceptance.sequence_number);
+          return (bytes_read >= body_size);
+        default:
+          utils::throw_exception("Invalid packet type");
+      }
+  }
 }
 
 bool TcpHandler::recv_snapshot(void)
 {
-  //read header
+  static uint8_t state = 0;
+  static uint16_t bytes_read = 0;
+  static SoupBinTCPPacket packet;
+  static std::vector<char> buffer(4096);
 
-  //determine body length
-
-  //read body
-
-  //handle 'H' and 'S' packets
+  switch (state)
+  {
+    case 0:
+      state += read_header(packet);
+      break;
+    case 1:
+      switch (packet.body.type)
+      {
+        case 'H':
+          last_incoming = std::chrono::steady_clock::now();
+          return false;
+        case 'S':
+          const uint32_t payload_size = packet.length - sizeof(packet.body.type);
+          buffer.reserve(payload_size);
+          bytes_read += utils::try_recv(sock_fd, buffer.data() + bytes_read, payload_size - bytes_read);
+          if (bytes_read < payload_size)
+            return false;
+          bytes_read = 0;
+          state = 0;
+          buffer.clear();
+          return process_message_blocks(buffer);
+        default:
+          utils::throw_exception("Invalid packet type");
+      }
+  }
 }
 
 COLD bool TcpHandler::send_logout(void)
@@ -190,4 +233,23 @@ bool TcpHandler::send_hearbeat(void)
 
   last_outgoing = std::chrono::steady_clock::now();
   return true;
+}
+
+bool TcpHandler::read_header(SoupBinTCPPacket &packet) const
+{
+  constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.body.type);
+  static uint16_t bytes_read = 0;
+
+  bytes_read += utils::try_recv(sock_fd, reinterpret_cast<char *>(&packet) + bytes_read, header_size - bytes_read);
+
+  const bool complete = (bytes_read >= header_size);
+  bytes_read *= !complete;
+  return complete;
+}
+
+bool TcpHandler::process_message_blocks(const std::vector<char> &buffer)
+{
+
+
+  //returns truee if snapshot completion package found, false otherwise
 }

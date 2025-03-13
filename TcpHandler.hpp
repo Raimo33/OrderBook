@@ -37,6 +37,9 @@ class TcpHandler
     bool send_logout(void);
     bool send_hearbeat(void);
 
+    bool read_header(SoupBinTCPPacket &packet) const;
+    bool process_message_blocks(const std::vector<char> &buffer);
+
     uint8_t state;
     uint64_t sequence_number;
     OrderBook *order_book;

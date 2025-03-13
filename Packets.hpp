@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <vector>
 
+//TODO using keyword per redundnacy
+
 #pragma pack(push, 1)
 
 struct SoupBinTCPPacket
@@ -22,7 +24,7 @@ struct SoupBinTCPPacket
         char requested_session[10];
         char requested_sequence_number[20];
       } login_request;
-  
+
       struct LoginAcceptance
       {
         char session[10];
@@ -55,17 +57,17 @@ struct MessageBlock
 
     union
     {
-      struct SnapshotCompletion
+      struct
       {
         char sequence[20];
       } snapshot_completion;
-  
-      struct Seconds
+
+      struct
       {
         uint32_t second;
       } seconds;
-  
-      struct SeriesInfoBasic
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         uint32_t orderbook_id;
@@ -87,8 +89,8 @@ struct MessageBlock
         uint16_t number_of_decimals_in_strike_price;
         uint8_t put_or_call;
       } series_info_basic;
-  
-      struct SeriesInfoBasicCombination
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         uint32_t combination_orderbook_id;
@@ -96,8 +98,8 @@ struct MessageBlock
         char leg_slide;
         int32_t leg_ratio;
       } series_info_basic_combination;
-  
-      struct TickSizeData
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         uint32_t orderbook_id;
@@ -105,21 +107,21 @@ struct MessageBlock
         uint32_t price_from;
         uint32_t price_to;
       } tick_size_data;
-  
-      struct SystemEventdata
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         char event_code;
       } system_event_data;
-  
-      struct TradingStatusData
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         uint32_t orderbook_id;
         char state_name[20];
       } trading_status_data;
-  
-      struct NewOrder
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         uint64_t order_id;
@@ -131,8 +133,8 @@ struct MessageBlock
         uint16_t order_attributes;
         uint8_t lot_type;
       } new_order;
-  
-      struct ExecutionNotice
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         uint64_t order_id;
@@ -144,8 +146,8 @@ struct MessageBlock
         char reserved1[7];
         char reserved2[7];
       } execution_notice;
-  
-      struct ExecutionNoticeWithTradeInfo
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         uint64_t order_id;
@@ -160,16 +162,16 @@ struct MessageBlock
         char occurred_cross;
         char printable;
       } execution_notice_with_trade_info;
-  
-      struct DeletedOrder
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         uint64_t order_id;
         uint32_t orderbook_id;
         char side;
       } deleted_order;
-  
-      struct EP
+
+      struct
       {
         uint32_t timestamp_nanoseconds;
         uint32_t orderbook_id;
