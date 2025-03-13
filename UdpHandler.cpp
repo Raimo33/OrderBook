@@ -86,7 +86,7 @@ void UdpHandler::process_updates(const uint32_t event_mask)
 
   {
     //read packet
-    //put in queue (by sorting by sequence number)
+    //put orders in queue (by sorting by sequence number)
     //empty the queue as long as you extract packets in order
   }
 }

@@ -155,7 +155,7 @@ COLD bool TcpHandler::recv_login(void)
   {
     case 'H':
       constexpr uint8_t heartbeat_size = minimum_size;
-      std::memmove(buffer, buffer + heartbeat_size, total_size - heartbeat_size); //TODO use ring buffer instead
+      std::memmove(buffer, buffer + heartbeat_size, total_size - heartbeat_size);
       received_bytes -= heartbeat_size;
       last_incoming = std::chrono::steady_clock::now();
       return false;
@@ -174,33 +174,13 @@ COLD bool TcpHandler::recv_login(void)
 
 bool TcpHandler::recv_snapshot(void)
 {
-  static char buffer[1024];
-  static SoupBinTCPPacket& packet = *reinterpret_cast<SoupBinTCPPacket *>(buffer);
-  static uint32_t received_bytes = 0;
-  constexpr uint8_t minimum_size = sizeof(packet.length) + sizeof(packet.body.type);
+  //read header
 
-  received_bytes += utils::try_recv(sock_fd, buffer + received_bytes, sizeof(buffer) - received_bytes);
-  if (received_bytes < minimum_size)
-    return false;
+  //determine body length
 
-  switch (packet.body.type)
-  {
-    case 'H':
-      constexpr uint8_t heartbeat_size = minimum_size;
-      std::memmove(buffer, buffer + heartbeat_size, sizeof(buffer) - heartbeat_size); //TODO use ring buffer instead
-      last_incoming = std::chrono::steady_clock::now();
-      return false;
-    case 'S':
-      //return false if the data received is smaller than the packet.length
-      //process all the message blocks for packet.length bytes
-      //increase sequence number
-      last_incoming = std::chrono::steady_clock::now();
-      //remove questo Data Packet dal buffer
-      return //true se e' arrivato il message data di completion, false altrimenti
-    default:
-      utils::throw_exception("Unexpected packet during snapshot");
-  }
+  //read body
 
+  //handle 'H' and 'S' packets
 }
 
 COLD bool TcpHandler::send_logout(void)
