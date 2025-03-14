@@ -30,6 +30,8 @@ Client::Client(const Config &config) :
   server_config_idx(0),
   orderbook_ready(false),
   login_request(create_login_request(config.client_conf)),
+  tcp_client_heartbeat(create_tcp_client_heartbeat()),
+  logout_request(create_logout_request()),
   order_book(),
   glimpse_address(create_address(config.server_confs[server_config_idx].glimpse_endpoint.ip, config.server_confs[server_config_idx].glimpse_endpoint.port)),
   multicast_address(create_address(config.server_confs[server_config_idx].multicast_endpoint.ip, config.server_confs[server_config_idx].multicast_endpoint.port)),
@@ -61,6 +63,28 @@ COLD SoupBinTCPPacket Client::create_login_request(const ClientConfig &client_co
   std::memcpy(login.password, client_conf.password.c_str(), sizeof(login.password));
   std::memset(login.requested_session, ' ', sizeof(login.requested_session));
   login.requested_sequence_number[0] = '1';
+
+  return packet;
+}
+
+COLD SoupBinTCPPacket Client::create_tcp_client_heartbeat(void) const noexcept
+{
+  constexpr SoupBinTCPPacket packet = {
+    .length = 1,
+    .type = 'H',
+    .client_heartbeat{}
+  };
+
+  return packet;
+}
+
+COLD SoupBinTCPPacket Client::create_logout_request(void) const noexcept
+{
+  constexpr SoupBinTCPPacket packet = {
+    .length = 1,
+    .type = 'L',
+    .logout_request{}
+  };
 
   return packet;
 }
@@ -200,7 +224,7 @@ void Client::run(void)
         const epoll_event event = events[n];
         (this->*handlers[event.data.fd].handler)(event.events);
       }
-  
+
       // engine.print_orderbook();
     }
   }
@@ -219,7 +243,7 @@ COLD void Client::fetch_snapshot(const uint32_t event_mask)
       state += connect(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address));
       break;
     case 1:
-      state += send_login();
+      state += send_tcp_packet(login_request);
       break;
     case 2:
       state += recv_login();
@@ -228,11 +252,10 @@ COLD void Client::fetch_snapshot(const uint32_t event_mask)
       state += recv_snapshot();
       break;
     case 4:
-      orderbook_ready = send_logout();
+      state *= !send_tcp_packet(logout_request);
+      orderbook_ready = (state == 0);
       break;
   }
-
-  state *= !orderbook_ready;
 }
 
 COLD void Client::accumulate_new_messages(const uint32_t event_mask)
@@ -263,24 +286,20 @@ HOT void Client::handle_tcp_heartbeat_timeout(UNUSED const uint32_t event_mask)
 {
   const auto now = std::chrono::steady_clock::now();
   
-  auto skip_timeout = [this]() {
-    uint64_t _;
-    read(timer_fd, &_, sizeof(_));
-  };
+  uint64_t _;
+  read(timer_fd, &_, sizeof(_));
 
+  if (now - last_outgoing > 1s)
+    send_tcp_packet(tcp_client_heartbeat);
   if (UNLIKELY(now - last_incoming > 50ms))
     utils::throw_exception("Server timeout");
-    
-  bool should_skip = (now - last_outgoing <= 1s) || send_tcp_hearbeat();
-  if (should_skip)
-    skip_timeout();
 }
 
-COLD bool Client::send_login(void)
+COLD bool Client::send_tcp_packet(const SoupBinTCPPacket &packet)
 {
-  static const char *buffer = reinterpret_cast<const char *>(&login_request);
-  constexpr uint32_t total_size = sizeof(login_request.length) + sizeof(login_request.type) + sizeof(login_request.login_request);
-  static uint32_t sent_bytes = 0;
+  const char *buffer = reinterpret_cast<const char *>(&packet);
+  const uint16_t total_size = sizeof(packet.length) + packet.length;
+  static uint16_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(tcp_sock_fd, buffer + sent_bytes, total_size - sent_bytes);
   if (sent_bytes < total_size)
@@ -373,44 +392,6 @@ bool Client::recv_snapshot(void)
   }
 }
 
-COLD bool Client::send_logout(void)
-{
-  constexpr SoupBinTCPPacket logout_request = {
-    .length = 1,
-    .type = 'O'
-  };
-  static const char *buffer = reinterpret_cast<const char *>(&logout_request);
-  constexpr uint32_t total_size = sizeof(logout_request.length) + sizeof(logout_request.type);
-  static uint32_t sent_bytes = 0;
-
-  sent_bytes += utils::try_tcp_send(tcp_sock_fd, buffer + sent_bytes, total_size - sent_bytes);
-  if (sent_bytes < total_size)
-    return false;
-
-  last_outgoing = std::chrono::steady_clock::now();
-  sent_bytes = 0;
-  return true;
-}
-
-HOT bool Client::send_tcp_hearbeat(void)
-{
-  constexpr SoupBinTCPPacket user_heartbeat = {
-    .length = 1,
-    .type = 'H'
-  };
-  static const char *buffer = reinterpret_cast<const char *>(&user_heartbeat);
-  constexpr uint32_t total_size = sizeof(user_heartbeat.length) + sizeof(user_heartbeat.type);
-  static uint32_t sent_bytes = 0;
-
-  sent_bytes += utils::try_tcp_send(tcp_sock_fd, buffer + sent_bytes, total_size - sent_bytes);
-  if (sent_bytes < total_size)
-    return false;
-
-  last_outgoing = std::chrono::steady_clock::now();
-  sent_bytes = 0;
-  return true;
-}
-
 bool Client::process_message_blocks(const std::vector<char> &buffer)
 {
   auto it = buffer.cbegin();
@@ -486,5 +467,9 @@ HOT void Client::handle_udp_heartbeat_timeout(UNUSED const uint32_t event_mask)
 {
   const auto &now = std::chrono::steady_clock::now();
 
-  //TODO
+  uint64_t _;
+  read(timer_fd, &_, sizeof(_));
+
+  if (now - last_incoming > 50ms)
+    utils::throw_exception("Server timeout");
 }
