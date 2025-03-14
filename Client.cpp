@@ -334,6 +334,7 @@ COLD bool Client::recv_login(void)
           state = HEADER;
           return false;
         case 'J':
+          //TODO read the reason
           utils::throw_exception("Login rejected");
         case 'A':
           const uint16_t payload_size = ntohl(packet.length) - sizeof(packet.type);
@@ -427,7 +428,7 @@ bool Client::process_message_blocks(const std::vector<char> &buffer)
         break;
       case 'G':
         const uint64_t sequence_number = utils::atoul(block.data.snapshot_completion.sequence);
-        utils::assert(sequence_number == this->sequence_number, "Unexpected sequence number");
+        utils::assert(sequence_number == this->sequence_number++, "Unexpected sequence number");
         return true;
       default:
         break;
