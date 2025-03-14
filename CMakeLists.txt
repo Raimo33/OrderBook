@@ -8,8 +8,6 @@ add_executable(OrderBook
   main.cpp
   Client.cpp
   OrderBook.cpp
-  TcpHandler.cpp
-  UdpHandler.cpp
   Config.cpp
   utils.cpp
 )
