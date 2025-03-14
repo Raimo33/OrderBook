@@ -6,6 +6,8 @@
 #include <chrono>
 #include <sys/timerfd.h>
 #include <cstring>
+#include <unordered_map>
+#include <vector>
 
 #include "TcpHandler.hpp"
 #include "Config.hpp"
@@ -38,10 +40,10 @@ const SoupBinTCPPacket TcpHandler::create_login_request(const ClientConfig &clie
 {
   SoupBinTCPPacket packet{};
 
-  packet.length = sizeof(packet.body.type) + sizeof(SoupBinTCPPacket::Body::LoginRequest);
-  packet.body.type = 'L';
+  packet.length = sizeof(packet.type) + sizeof(packet.login_request);
+  packet.type = 'L';
 
-  auto &login = packet.body.login_request;
+  auto &login = packet.login_request;
 
   std::memcpy(login.username, client_conf.username.c_str(), sizeof(login.username));
   std::memcpy(login.password, client_conf.password.c_str(), sizeof(login.password));
@@ -123,7 +125,7 @@ void TcpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
 COLD bool TcpHandler::send_login(void)
 {
   static const char *buffer = reinterpret_cast<const char *>(&login_request);
-  constexpr uint32_t total_size = sizeof(login_request.length) + sizeof(login_request.body.type) + sizeof(login_request.body.login_request);
+  constexpr uint32_t total_size = sizeof(login_request.length) + sizeof(login_request.type) + sizeof(login_request.login_request);
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
@@ -146,18 +148,21 @@ COLD bool TcpHandler::recv_login(void)
       state += read_header(packet);
       break;
     case 1:
-      switch (packet.body.type)
+      switch (packet.type)
       {
         case 'H':
           last_incoming = std::chrono::steady_clock::now();
           return false;
+
         case 'J':
           utils::throw_exception("Login rejected");
+
         case 'A':
-          constexpr uint8_t body_size = sizeof(SoupBinTCPPacket::Body::LoginAcceptance);
-          bytes_read += utils::try_recv(sock_fd, reinterpret_cast<char *>(&packet.body.login_acceptance) + bytes_read, body_size - bytes_read);
-          sequence_number = utils::atoul(packet.body.login_acceptance.sequence_number);
-          return (bytes_read >= body_size);
+          auto &login_acceptance = packet.login_acceptance;
+          bytes_read += utils::try_recv(sock_fd, login_acceptance.session + bytes_read, sizeof(login_acceptance.session) - bytes_read);
+          sequence_number = utils::atoul(packet.login_acceptance.sequence_number);
+          return (bytes_read >= sizeof(login_acceptance.session));
+
         default:
           utils::throw_exception("Invalid packet type");
       }
@@ -169,7 +174,7 @@ bool TcpHandler::recv_snapshot(void)
   static uint8_t state = 0;
   static uint16_t bytes_read = 0;
   static SoupBinTCPPacket packet;
-  static std::vector<char> buffer(4096);
+  static std::vector<char> buffer;
 
   switch (state)
   {
@@ -177,21 +182,24 @@ bool TcpHandler::recv_snapshot(void)
       state += read_header(packet);
       break;
     case 1:
-      switch (packet.body.type)
+      switch (packet.type)
       {
         case 'H':
           last_incoming = std::chrono::steady_clock::now();
           return false;
+
         case 'S':
-          const uint32_t payload_size = packet.length - sizeof(packet.body.type);
-          buffer.reserve(payload_size);
+          const uint32_t payload_size = packet.length - sizeof(packet.type);
+          buffer.resize(payload_size);
           bytes_read += utils::try_recv(sock_fd, buffer.data() + bytes_read, payload_size - bytes_read);
           if (bytes_read < payload_size)
             return false;
+          const bool snapshot_complete = process_message_blocks(buffer);
+          buffer.clear();
           bytes_read = 0;
           state = 0;
-          buffer.clear();
-          return process_message_blocks(buffer);
+          return snapshot_complete;
+
         default:
           utils::throw_exception("Invalid packet type");
       }
@@ -202,10 +210,10 @@ COLD bool TcpHandler::send_logout(void)
 {
   constexpr SoupBinTCPPacket logout_request = {
     .length = 1,
-    .body.type = 'O'
+    .type = 'O'
   };
   static const char *buffer = reinterpret_cast<const char *>(&logout_request);
-  constexpr uint32_t total_size = sizeof(logout_request.length) + sizeof(logout_request.body.type);
+  constexpr uint32_t total_size = sizeof(logout_request.length) + sizeof(logout_request.type);
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
@@ -221,10 +229,10 @@ bool TcpHandler::send_hearbeat(void)
 {
   constexpr SoupBinTCPPacket user_heartbeat = {
     .length = 1,
-    .body.type = 'H'
+    .type = 'H'
   };
   static const char *buffer = reinterpret_cast<const char *>(&user_heartbeat);
-  constexpr uint32_t total_size = sizeof(user_heartbeat.length) + sizeof(user_heartbeat.body.type);
+  constexpr uint32_t total_size = sizeof(user_heartbeat.length) + sizeof(user_heartbeat.type);
   static uint32_t sent_bytes = 0;
 
   sent_bytes += utils::try_tcp_send(sock_fd, buffer + sent_bytes, total_size - sent_bytes);
@@ -237,7 +245,7 @@ bool TcpHandler::send_hearbeat(void)
 
 bool TcpHandler::read_header(SoupBinTCPPacket &packet) const
 {
-  constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.body.type);
+  constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
   static uint16_t bytes_read = 0;
 
   bytes_read += utils::try_recv(sock_fd, reinterpret_cast<char *>(&packet) + bytes_read, header_size - bytes_read);
@@ -249,7 +257,45 @@ bool TcpHandler::read_header(SoupBinTCPPacket &packet) const
 
 bool TcpHandler::process_message_blocks(const std::vector<char> &buffer)
 {
+  auto it = buffer.cbegin();
+  const auto end = buffer.cend();
 
+  static std::unordered_map<char, uint32_t> message_sizes = {
+    {'T', sizeof(MessageBlock::data.seconds)},
+    {'R', sizeof(MessageBlock::data.series_info_basic)},
+    {'M', sizeof(MessageBlock::data.series_info_basic_combination)},
+    {'L', sizeof(MessageBlock::data.tick_size_data)},
+    {'S', sizeof(MessageBlock::data.system_event_data)},
+    {'O', sizeof(MessageBlock::data.trading_status_data)},
+    {'A', sizeof(MessageBlock::data.new_order)},
+    {'E', sizeof(MessageBlock::data.execution_notice)},
+    {'C', sizeof(MessageBlock::data.execution_notice_with_trade_info)},
+    {'D', sizeof(MessageBlock::data.deleted_order)},
+    {'Z', sizeof(MessageBlock::data.ep)}
+  };
 
-  //returns truee if snapshot completion package found, false otherwise
+  while (it != end)
+  {
+    const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(&*it);
+
+    utils::assert(message_sizes.at(block.type) == block.length, "Unexpected message block length");
+
+    switch (block.type)
+    {
+      case 'S':
+
+      case 'T':
+      case 'R':
+      case 'M':
+        break;
+      default:
+        utils::throw_exception("Unexpected message block type");
+    }
+    //returns truee if snapshot completion package found
+
+    sequence_number++;
+    std::advance(it, block.length);
+  }
+
+  return false;
 }
