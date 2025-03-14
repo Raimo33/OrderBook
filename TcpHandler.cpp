@@ -266,7 +266,7 @@ bool TcpHandler::process_message_blocks(const std::vector<char> &buffer)
   auto it = buffer.cbegin();
   const auto end = buffer.cend();
 
-  static std::unordered_map<char, uint32_t> message_sizes = {
+  static const std::unordered_map<char, uint16_t> message_sizes = {
     {'T', sizeof(MessageBlock::data.seconds)},
     {'R', sizeof(MessageBlock::data.series_info_basic)},
     {'M', sizeof(MessageBlock::data.series_info_basic_combination)},
