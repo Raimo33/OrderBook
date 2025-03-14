@@ -23,7 +23,7 @@ class TcpHandler
     inline int  get_timer_fd(void) const noexcept;
 
     void request_snapshot(const uint32_t event_mask);
-    void handle_heartbeat_timeout(const uint32_t event_mask);
+    void handle_heartbeat_timeout(void);
 
   private:
 

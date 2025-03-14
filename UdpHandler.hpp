@@ -21,7 +21,7 @@ class UdpHandler
 
     void accumulate_updates(const uint32_t event_mask);
     void process_updates(const uint32_t event_mask);
-    void handle_heartbeat_timeout(const uint32_t event_mask);
+    void handle_heartbeat_timeout(void);
 
   private:
 

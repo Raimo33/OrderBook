@@ -109,17 +109,21 @@ COLD void TcpHandler::request_snapshot(const uint32_t event_mask)
   }
 }
 
-void TcpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
+void TcpHandler::handle_heartbeat_timeout(void)
 {
   const auto now = std::chrono::steady_clock::now();
-
-  uint64_t _;
-  read(timer_fd, &_, sizeof(_));
+  
+  auto skip_timeout = [this]() {
+    uint64_t _;
+    read(timer_fd, &_, sizeof(_));
+  };
 
   if (UNLIKELY(now - last_incoming > 50ms))
     utils::throw_exception("Server timeout");
-  if (UNLIKELY(now - last_outgoing > 1s))
-    send_hearbeat();
+    
+  bool should_skip = (now - last_outgoing <= 1s) || send_hearbeat();
+  if (should_skip)
+    skip_timeout();
 }
 
 COLD bool TcpHandler::send_login(void)
@@ -133,6 +137,7 @@ COLD bool TcpHandler::send_login(void)
     return false;
 
   last_outgoing = std::chrono::steady_clock::now();
+  sent_bytes = 0;
   return true;
 }
 
@@ -221,10 +226,10 @@ COLD bool TcpHandler::send_logout(void)
     return false;
 
   last_outgoing = std::chrono::steady_clock::now();
+  sent_bytes = 0;
   return true;
 }
 
-//TODO may not send everything in one go
 bool TcpHandler::send_hearbeat(void)
 {
   constexpr SoupBinTCPPacket user_heartbeat = {
@@ -240,6 +245,7 @@ bool TcpHandler::send_hearbeat(void)
     return false;
 
   last_outgoing = std::chrono::steady_clock::now();
+  sent_bytes = 0;
   return true;
 }
 
@@ -280,6 +286,7 @@ bool TcpHandler::process_message_blocks(const std::vector<char> &buffer)
 
     utils::assert(message_sizes.at(block.type) == block.length, "Unexpected message block length");
 
+    //TODO handle all events
     switch (block.type)
     {
       case 'S':
@@ -291,7 +298,7 @@ bool TcpHandler::process_message_blocks(const std::vector<char> &buffer)
       default:
         utils::throw_exception("Unexpected message block type");
     }
-    //returns truee if snapshot completion package found
+    //returns true if snapshot completion package found
 
     sequence_number++;
     std::advance(it, block.length);

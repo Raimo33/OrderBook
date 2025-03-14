@@ -92,9 +92,9 @@ void Client::run(void)
       else if (event.data.fd == udp_sock_fd)
         udp_handler->accumulate_updates(mask);
       else if (event.data.fd == tcp_timer_fd)
-        tcp_handler->handle_heartbeat_timeout(mask);
+        tcp_handler->handle_heartbeat_timeout();
       else if (event.data.fd == udp_timer_fd)
-        udp_handler->handle_heartbeat_timeout(mask);
+        udp_handler->handle_heartbeat_timeout();
     }
   }
 

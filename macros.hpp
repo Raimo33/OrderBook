@@ -18,4 +18,3 @@ last edited: 2025-03-08 21:15:54
 #define ALWAYS_INLINE   __attribute__((always_inline))
 #define NEVER_INLINE    __attribute__((noinline))
 #define UNREACHABLE     __builtin_unreachable()
-#define UNUSED          __attribute__((unused))

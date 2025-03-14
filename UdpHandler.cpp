@@ -91,7 +91,7 @@ void UdpHandler::process_updates(const uint32_t event_mask)
   }
 }
 
-void UdpHandler::handle_heartbeat_timeout(UNUSED const uint32_t event_mask)
+void UdpHandler::handle_heartbeat_timeout(void)
 {
   const auto now = std::chrono::steady_clock::now();
 
