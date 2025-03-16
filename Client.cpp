@@ -87,7 +87,6 @@ COLD int Client::create_udp_socket(void) const noexcept
   setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable));
   setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority));
   setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
-  setsockopt(sock_fd, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, &enable, sizeof(enable));
   //TODO SO_RCVBUF (not < than MTU)
   //TODO SO_BINDTODEVICE
 
@@ -247,10 +246,10 @@ COLD bool Client::send_login(const uint16_t event_mask)
 
   SoupBinTCPPacket packet{};
 
-  packet.length = sizeof(packet.type) + sizeof(packet.data.login_request);
+  packet.length = sizeof(packet.type) + sizeof(packet.login_request);
   packet.type = 'L';
 
-  auto &login = packet.data.login_request;
+  auto &login = packet.login_request;
 
   std::memcpy(login.username, config.client_conf.username.c_str(), sizeof(login.username));
   std::memcpy(login.password, config.client_conf.password.c_str(), sizeof(login.password));
@@ -285,9 +284,9 @@ COLD bool Client::recv_login(const uint16_t event_mask)
     case 'A':
     {
       const uint16_t payload_size = utils::bswap32(packet.length) - sizeof(packet.type);
-      utils::assert(payload_size == sizeof(packet.data.login_acceptance), "Unexpected login acceptance size");
-      utils::safe_recv(tcp_sock_fd, reinterpret_cast<char *>(&packet.data.login_acceptance), payload_size);
-      sequence_number = utils::atoul(packet.data.login_acceptance.sequence_number);
+      utils::assert(payload_size == sizeof(packet.login_acceptance), "Unexpected login acceptance size");
+      utils::safe_recv(tcp_sock_fd, reinterpret_cast<char *>(&packet.login_acceptance), payload_size);
+      sequence_number = utils::atoul(packet.login_acceptance.sequence_number);
       return true;
     }
     default:
@@ -334,7 +333,7 @@ COLD bool Client::send_logout(const uint16_t event_mask)
   constexpr SoupBinTCPPacket packet = {
     .length = 1,
     .type = 'Z',
-    .data{}
+    .logout_request{}
   };
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type);
 
@@ -349,7 +348,7 @@ HOT void Client::send_hearbeat(void)
   constexpr SoupBinTCPPacket packet = {
     .length = 1,
     .type = 'H',
-    .data{}
+    .client_heartbeat{}
   };
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type);
 
@@ -363,18 +362,18 @@ bool Client::process_message_blocks(const std::vector<char> &buffer)
   const auto end = buffer.cend();
 
   static const std::unordered_map<char, uint16_t> message_sizes = {
-    {'T', sizeof(MessageBlock::Seconds)},
-    {'R', sizeof(MessageBlock::SeriesInfoBasic)},
-    {'M', sizeof(MessageBlock::SeriesInfoBasicCombination)},
-    {'L', sizeof(MessageBlock::TickSizeData)},
-    {'S', sizeof(MessageBlock::SystemEventData)},
-    {'O', sizeof(MessageBlock::TradingStatusData)},
-    {'A', sizeof(MessageBlock::NewOrder)},
-    {'E', sizeof(MessageBlock::ExecutionNotice)},
-    {'C', sizeof(MessageBlock::ExecutionNoticeWithTradeInfo)},
-    {'D', sizeof(MessageBlock::DeletedOrder)},
-    {'Z', sizeof(MessageBlock::EP)},
-    {'G', sizeof(MessageBlock::SnapshotCompletion)}
+    {'T', sizeof(MessageBlock::seconds)},
+    {'R', sizeof(MessageBlock::series_info_basic)},
+    {'M', sizeof(MessageBlock::series_info_basic_combination)},
+    {'L', sizeof(MessageBlock::tick_size_data)},
+    {'S', sizeof(MessageBlock::system_event_data)},
+    {'O', sizeof(MessageBlock::trading_status_data)},
+    {'A', sizeof(MessageBlock::new_order)},
+    {'E', sizeof(MessageBlock::execution_notice)},
+    {'C', sizeof(MessageBlock::execution_notice_with_trade_info)},
+    {'D', sizeof(MessageBlock::deleted_order)},
+    {'Z', sizeof(MessageBlock::ep)},
+    {'G', sizeof(MessageBlock::snapshot_completion)}
   };
 
   while (it != end)
@@ -394,7 +393,7 @@ bool Client::process_message_blocks(const std::vector<char> &buffer)
         break;
       case 'G':
       {
-        const uint64_t sequence_number = utils::atoul(block.data.snapshot_completion.sequence);
+        const uint64_t sequence_number = utils::atoul(block.snapshot_completion.sequence);
         utils::assert(sequence_number == ++this->sequence_number, "Unexpected sequence number");
         return true;
       }
@@ -411,7 +410,7 @@ bool Client::process_message_blocks(const std::vector<char> &buffer)
 
 HOT void Client::handle_new_order(const MessageBlock &block)
 {
-  const auto &new_order = block.data.new_order;
+  const auto &new_order = block.new_order;
   const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
   const int32_t price = utils::bswap32(new_order.price);
   const uint64_t volume = utils::bswap32(new_order.quantity);
@@ -426,7 +425,7 @@ HOT void Client::handle_new_order(const MessageBlock &block)
 HOT void Client::handle_deleted_order(const MessageBlock &block)
 {
   (void)block;
-  // const auto &deleted_order = block.data.deleted_order;
+  // const auto &deleted_order = block.deleted_order;
   // const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
   // const uint32_t price = utils::bswap32(deleted_order.price);
   // const uint64_t volume = utils::bswap32(deleted_order.quantity);

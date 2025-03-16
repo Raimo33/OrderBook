@@ -8,7 +8,7 @@
 
 namespace utils
 {
-  void throw_exception(const std::string_view message);
+  [[noreturn]] void throw_exception(const std::string_view message);
   inline void assert(const bool condition, const std::string_view message);
   uint64_t atoul(const std::string_view str);
   uint8_t ultoa(uint64_t num, char *buffer);
