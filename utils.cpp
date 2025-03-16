@@ -26,4 +26,68 @@ namespace utils
 
     return result * valid;
   }
+  
+  HOT uint8_t ultoa(uint64_t num, char *buffer)
+  {
+    if (num == 0)
+    {
+      buffer[0] = '0';
+      return 1;
+    }
+  
+    const uint8_t digits = 1 +
+      (num >= 10UL) +
+      (num >= 100UL) +
+      (num >= 1000UL) +
+      (num >= 10000UL) +
+      (num >= 100000UL) +
+      (num >= 1000000UL) +
+      (num >= 10000000UL) +
+      (num >= 100000000UL) +
+      (num >= 1000000000UL) +
+      (num >= 10000000000UL) +
+      (num >= 100000000000UL) +
+      (num >= 1000000000000UL) +
+      (num >= 10000000000000UL) +
+      (num >= 100000000000000UL) +
+      (num >= 1000000000000000UL) +
+      (num >= 10000000000000000UL) +
+      (num >= 100000000000000000UL) +
+      (num >= 1000000000000000000UL);
+  
+    constexpr uint64_t power10[] = {
+      1UL,
+      10UL,
+      100UL,
+      1000UL,
+      10000UL,
+      100000UL,
+      1000000UL,
+      10000000UL,
+      100000000UL,
+      1000000000UL,
+      10000000000UL,
+      100000000000UL,
+      1000000000000UL,
+      10000000000000UL,
+      100000000000000UL,
+      1000000000000000UL,
+      10000000000000000UL,
+      100000000000000000UL,
+      1000000000000000000UL,
+    };
+  
+    uint64_t power = power10[digits - 1];
+    char *p = buffer;
+    uint64_t quotient;
+    for (int i = 0; i < digits; i++)
+    {
+      quotient = num / power;
+      *p++ = (char)('0' + quotient);
+      num -= quotient * power;
+      power /= 10;
+    }
+  
+    return digits;
+  }
 }

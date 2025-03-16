@@ -11,8 +11,6 @@
 #include <sys/timerfd.h>
 #include <immintrin.h>
 
-static inline size_t try_send(const int sock_fd, const char *buffer, const size_t size, const uint32_t flags);
-
 namespace utils
 {
   HOT ALWAYS_INLINE inline void assert(const bool condition, const std::string_view message = "Assertion failed")
@@ -21,35 +19,35 @@ namespace utils
       throw_exception(message);
   }
 
-  HOT inline size_t try_tcp_send(const int sock_fd, const char *buffer, const size_t size)
+  HOT inline size_t safe_send(const int sock_fd, const char *buffer, const size_t size)
   {
-    return try_send(sock_fd, buffer, size, MSG_DONTROUTE | MSG_NOSIGNAL | MSG_DONTWAIT | MSG_ZEROCOPY);
+    const ssize_t ret = send(sock_fd, buffer, size, MSG_DONTROUTE | MSG_NOSIGNAL);
+    if (UNLIKELY(ret < 0))
+      throw_exception("Failed to send data");
+    return ret;
   }
 
-  HOT inline size_t try_udp_send(const int sock_fd, const char *buffer, const size_t size)
+  HOT inline size_t safe_recv(const int sock_fd, char *buffer, const size_t size)
   {
-    return try_send(sock_fd, buffer, size, MSG_DONTROUTE | MSG_NOSIGNAL | MSG_DONTWAIT);
-  }
-
-  HOT inline size_t try_recv(const int sock_fd, char *buffer, const size_t size)
-  {
-    const ssize_t ret = recv(sock_fd, buffer, size, MSG_DONTWAIT | MSG_NOSIGNAL);
-
-    const bool error = (ret < 0) & !((errno == EAGAIN) | (errno == EWOULDBLOCK));
-    if (UNLIKELY(error))
+    const ssize_t ret = recv(sock_fd, buffer, size, MSG_NOSIGNAL);
+    if (UNLIKELY(ret < 0))
       throw_exception("Failed to receive data");
 
     return ret;
   }
-}
 
-HOT static inline size_t try_send(const int sock_fd, const char *buffer, const size_t size, const uint32_t flags)
-{
-  const ssize_t ret = send(sock_fd, buffer, size, flags);
+  HOT uint16_t swap16(const uint16_t value)
+  {
+    return __builtin_bswap16(value);
+  }
 
-  const bool error = (ret < 0) & !((errno == EAGAIN) | (errno == EWOULDBLOCK));
-  if (UNLIKELY(error))
-    utils::throw_exception("Failed to send data");
+  HOT uint32_t swap32(const uint32_t value)
+  {
+    return __builtin_bswap32(value);
+  }
 
-  return ret;
+  HOT uint64_t swap64(const uint64_t value)
+  {
+    return __builtin_bswap64(value);
+  }
 }
