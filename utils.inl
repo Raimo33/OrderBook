@@ -3,13 +3,13 @@
 #include "utils.hpp"
 #include "macros.hpp"
 
+#include <cstring>
+#include <stdexcept>
 #include <string>
 #include <string_view>
-#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include <arpa/inet.h>
-#include <cstdint>
-#include <sys/timerfd.h>
-#include <immintrin.h>
 
 namespace utils
 {
@@ -32,21 +32,28 @@ namespace utils
     const ssize_t ret = recv(sock_fd, buffer, size, MSG_NOSIGNAL);
     if (UNLIKELY(ret < 0))
       throw_exception("Failed to receive data");
-
     return ret;
   }
 
-  HOT uint16_t swap16(const uint16_t value)
+  HOT inline size_t safe_read(const int fd, char *buffer, const size_t size)
+  {
+    const ssize_t ret = read(fd, buffer, size);
+    if (UNLIKELY(ret < 0))
+      throw_exception("Failed to read data");
+    return ret;
+  }
+
+  HOT ALWAYS_INLINE inline uint16_t bswap16(const uint16_t value)
   {
     return __builtin_bswap16(value);
   }
 
-  HOT uint32_t swap32(const uint32_t value)
+  HOT ALWAYS_INLINE inline uint32_t bswap32(const uint32_t value)
   {
     return __builtin_bswap32(value);
   }
 
-  HOT uint64_t swap64(const uint64_t value)
+  HOT ALWAYS_INLINE inline uint64_t bswap64(const uint64_t value)
   {
     return __builtin_bswap64(value);
   }

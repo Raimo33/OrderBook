@@ -35,7 +35,6 @@ class Client
     void handle_udp_heartbeat_timeout(const uint16_t event_mask);
 
     bool send_login(const uint16_t event_mask);
-    bool send_logout(const uint16_t event_mask);
     bool recv_login(const uint16_t event_mask);
     bool recv_snapshot(const uint16_t event_mask);
     bool send_logout(const uint16_t event_mask);
@@ -47,8 +46,7 @@ class Client
     void handle_deleted_order(const MessageBlock &block);
 
     Config config;
-    uint8_t server_config_idx;
-    bool orderbook_ready;
+    const ServerConfig &server_config;
     OrderBook order_book;
     const sockaddr_in glimpse_address;
     const sockaddr_in multicast_address;
@@ -57,7 +55,8 @@ class Client
     const int tcp_sock_fd;
     const int udp_sock_fd;
     const int timer_fd;
-    uint64_t sequence_number;
+    bool orderbook_ready;
     std::chrono::steady_clock::time_point last_incoming;
     std::chrono::steady_clock::time_point last_outgoing;
+    uint64_t sequence_number;
 };

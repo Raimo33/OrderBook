@@ -13,7 +13,6 @@ last edited: 2025-03-08 21:24:05
 #include <netinet/tcp.h>
 #include <sys/poll.h>
 #include <sys/timerfd.h>
-#include <unistd.h>
 #include <cstring>
 #include <array>
 #include <unordered_map>
@@ -27,16 +26,16 @@ using namespace std::chrono_literals;
 
 Client::Client(const Config &config) :
   config(config),
-  server_config_idx(0),
-  orderbook_ready(false),
+  server_config(config.server_confs[0]),
   order_book(),
-  glimpse_address(create_address(config.server_confs[server_config_idx].glimpse_endpoint.ip, config.server_confs[server_config_idx].glimpse_endpoint.port)),
-  multicast_address(create_address(config.server_confs[server_config_idx].multicast_endpoint.ip, config.server_confs[server_config_idx].multicast_endpoint.port)),
-  rewind_address(create_address(config.server_confs[server_config_idx].rewind_endpoint.ip, config.server_confs[server_config_idx].rewind_endpoint.port)),
+  glimpse_address(create_address(server_config.glimpse_endpoint.ip, server_config.glimpse_endpoint.port)),
+  multicast_address(create_address(server_config.multicast_endpoint.ip, server_config.multicast_endpoint.port)),
+  rewind_address(create_address(server_config.rewind_endpoint.ip, server_config.rewind_endpoint.port)),
   mreq(create_mreq(config.client_conf.bind_address)),
   tcp_sock_fd(create_tcp_socket()),
   udp_sock_fd(create_udp_socket()),
   timer_fd(create_timer_fd(50ms)),
+  orderbook_ready(false),
   last_incoming(std::chrono::steady_clock::now()),
   last_outgoing(std::chrono::steady_clock::now()),
   sequence_number(0)
@@ -44,7 +43,6 @@ Client::Client(const Config &config) :
   bind_socket(tcp_sock_fd, config.client_conf.bind_address, config.client_conf.tcp_port);
   bind_socket(udp_sock_fd, config.client_conf.bind_address, config.client_conf.udp_port);
 
-  connect(udp_sock_fd, reinterpret_cast<const sockaddr *>(&multicast_address), sizeof(multicast_address));
   connect(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address));
 }
 
@@ -52,7 +50,7 @@ COLD sockaddr_in Client::create_address(const std::string_view ip, const uint16_
 {
   return {
     .sin_family = AF_INET,
-    .sin_port = utils::swap16(port),
+    .sin_port = utils::bswap16(port),
     .sin_addr = {
       .s_addr = inet_addr(ip.data())
     },
@@ -89,6 +87,9 @@ COLD int Client::create_udp_socket(void) const noexcept
   setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable));
   setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority));
   setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+  setsockopt(sock_fd, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, &enable, sizeof(enable));
+  //TODO SO_RCVBUF (not < than MTU)
+  //TODO SO_BINDTODEVICE
 
   return sock_fd;
 }
@@ -114,7 +115,7 @@ COLD void Client::bind_socket(const int fd, const std::string_view ip, const uin
 {
   sockaddr_in bind_addr;
   bind_addr.sin_family = AF_INET;
-  bind_addr.sin_port = utils::swap16(port);
+  bind_addr.sin_port = utils::bswap16(port);
   inet_pton(AF_INET, ip.data(), &bind_addr.sin_addr);
 
   bind(fd, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr));
@@ -127,6 +128,7 @@ Client::~Client(void)
   close(timer_fd);
 }
 
+//TODO overhead of using unordered_map
 void Client::run(void)
 {
   using Handler = void (Client::*)(const uint16_t);
@@ -151,8 +153,6 @@ void Client::run(void)
 
       for (auto &fd : fds)
         (this->*handlers.at(fd.fd))(fd.revents);
-
-      _mm_pause();
     }
   }
 
@@ -174,8 +174,6 @@ void Client::run(void)
 
       for (auto &fd : fds)
         (this->*handlers.at(fd.fd))(fd.revents);
-      
-      _mm_pause();
     }
   }
 }
@@ -210,6 +208,7 @@ COLD void Client::accumulate_new_messages(const uint16_t event_mask)
   if (UNLIKELY(event_mask & (POLLERR | POLLHUP | POLLRDHUP)))
     utils::throw_exception("Server disconnected");
 
+  //TODO recvmsg with address specified
   {
     //read packet
     //put in queue (by sorting by sequence number)
@@ -233,7 +232,7 @@ HOT void Client::handle_tcp_heartbeat_timeout(UNUSED const uint16_t event_mask)
   const auto now = std::chrono::steady_clock::now();
   
   uint64_t _;
-  read(timer_fd, &_, sizeof(_));
+  utils::safe_read(timer_fd, reinterpret_cast<char *>(&_), sizeof(_));
 
   if (now - last_outgoing > 1s)
     send_hearbeat();
@@ -282,9 +281,10 @@ COLD bool Client::recv_login(const uint16_t event_mask)
       return recv_login(event_mask);
     case 'J':
       utils::throw_exception("Login rejected");
+      UNREACHABLE;
     case 'A':
     {
-      const uint16_t payload_size = utils::swap32(packet.length) - sizeof(packet.type);
+      const uint16_t payload_size = utils::bswap32(packet.length) - sizeof(packet.type);
       utils::assert(payload_size == sizeof(packet.data.login_acceptance), "Unexpected login acceptance size");
       utils::safe_recv(tcp_sock_fd, reinterpret_cast<char *>(&packet.data.login_acceptance), payload_size);
       sequence_number = utils::atoul(packet.data.login_acceptance.sequence_number);
@@ -314,7 +314,7 @@ bool Client::recv_snapshot(const uint16_t event_mask)
       return recv_snapshot(event_mask);
     case 'S':
     {
-      const uint16_t payload_size = utils::swap32(packet.length) - sizeof(packet.type);
+      const uint16_t payload_size = utils::bswap32(packet.length) - sizeof(packet.type);
       std::vector<char> buffer(payload_size);
       utils::safe_recv(tcp_sock_fd, buffer.data(), payload_size);
       return process_message_blocks(buffer);
@@ -380,7 +380,7 @@ bool Client::process_message_blocks(const std::vector<char> &buffer)
   while (it != end)
   {
     const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(&*it);
-    const uint16_t block_length = utils::swap16(block.length);
+    const uint16_t block_length = utils::bswap16(block.length);
 
     utils::assert(message_sizes.at(block.type) == block_length, "Unexpected message block length");
 
@@ -393,9 +393,11 @@ bool Client::process_message_blocks(const std::vector<char> &buffer)
         handle_deleted_order(block);
         break;
       case 'G':
+      {
         const uint64_t sequence_number = utils::atoul(block.data.snapshot_completion.sequence);
         utils::assert(sequence_number == ++this->sequence_number, "Unexpected sequence number");
         return true;
+      }
       default:
         break;
     }
@@ -411,8 +413,8 @@ HOT void Client::handle_new_order(const MessageBlock &block)
 {
   const auto &new_order = block.data.new_order;
   const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
-  const int32_t price = utils::swap32(new_order.price);
-  const uint64_t volume = utils::swap32(new_order.quantity);
+  const int32_t price = utils::bswap32(new_order.price);
+  const uint64_t volume = utils::bswap32(new_order.quantity);
 
   if (price == INT32_MIN)
     order_book.executeOrder(side, volume);
@@ -420,14 +422,16 @@ HOT void Client::handle_new_order(const MessageBlock &block)
     order_book.addOrder(side, price, volume);
 }
 
+//TODO find a way to efficiently remove orders
 HOT void Client::handle_deleted_order(const MessageBlock &block)
 {
-  const auto &deleted_order = block.data.deleted_order;
-  const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
-  const uint32_t price = utils::swap32(deleted_order.price);
-  const uint64_t volume = utils::swap32(deleted_order.quantity);
+  (void)block;
+  // const auto &deleted_order = block.data.deleted_order;
+  // const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
+  // const uint32_t price = utils::bswap32(deleted_order.price);
+  // const uint64_t volume = utils::bswap32(deleted_order.quantity);
 
-  order_book.removeOrder(side, price, volume);
+  // order_book.removeOrder(side, price, volume);
 }
 
 HOT void Client::handle_udp_heartbeat_timeout(UNUSED const uint16_t event_mask)
@@ -435,7 +439,7 @@ HOT void Client::handle_udp_heartbeat_timeout(UNUSED const uint16_t event_mask)
   const auto &now = std::chrono::steady_clock::now();
 
   uint64_t _;
-  read(timer_fd, &_, sizeof(_));
+  utils::safe_read(timer_fd, reinterpret_cast<char *>(&_), sizeof(_));
 
   if (now - last_incoming > 50ms)
     utils::throw_exception("Server timeout");
