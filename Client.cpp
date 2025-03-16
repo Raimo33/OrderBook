@@ -221,8 +221,7 @@ HOT void Client::process_live_updates(const uint16_t event_mask)
 
   {
     //read packet
-    //put orders in queue (by sorting by sequence number)
-    //empty the queue as long as you extract packets in order
+    //process packet
   }
 }
 
