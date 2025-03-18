@@ -1,7 +1,5 @@
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-*.cmake
+.env
 OrderBook
 .vscode/
+.d
+.o
