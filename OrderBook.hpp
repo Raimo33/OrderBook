@@ -18,12 +18,11 @@ class OrderBook
     void executeOrder(const Side side, uint64_t volume);
 
   private:
-    typedef std::pair<uint32_t, uint64_t> PriceLevel;
 
-    bool (*comparators[2])(const PriceLevel &lhs, const uint32_t price);
+    template <typename Compare>
+    std::vector<uint32_t>::const_iterator findPrice(const std::vector<uint32_t> &prices, const uint32_t price, Compare comp) const;
 
-    template <class Compare> void addOrder(std::vector<PriceLevel> &levels, const uint32_t price, const uint64_t volume, Compare comp);
-    template <class Compare> void removeOrder(std::vector<PriceLevel> &levels, const uint32_t price, const uint64_t volume, Compare comp);
+    std::vector<uint32_t> price_arrays[2];
+    std::vector<uint64_t> volume_arrays[2];
 
-    std::vector<PriceLevel> level_arrays[2];
 };
