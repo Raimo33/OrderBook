@@ -129,8 +129,8 @@ COLD bool Client::send_login(void)
 
   auto &login = packet.login_request;
 
-  std::memcpy(login.username, config.client_conf.username.c_str(), sizeof(login.username));
-  std::memcpy(login.password, config.client_conf.password.c_str(), sizeof(login.password));
+  std::memcpy(login.username, config.username.c_str(), sizeof(login.username));
+  std::memcpy(login.password, config.password.c_str(), sizeof(login.password));
   std::memset(login.requested_session, ' ', sizeof(login.requested_session));
   login.requested_sequence_number[0] = '1';
 
