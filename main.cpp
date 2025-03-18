@@ -19,8 +19,7 @@ int main(void)
 {
   try
   {
-    Config config = load_config();
-    Client client(config);
+    Client client;
     client.run();
   }
   catch (const std::exception &e)

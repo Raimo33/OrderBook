@@ -1,37 +1,25 @@
 #include "Config.hpp"
+#include "utils.hpp"
 
-static ServerConfig::Endpoint parse_ip_and_port(const std::string &ip_and_port)
+static std::string getenv_or_throw(const char* var);
+
+Config::Config(void) :
+  bind_ip(getenv_or_throw("BIND_IP")),
+  bind_port_udp(getenv_or_throw("BIND_PORT_UDP")),
+  bind_port_tcp(getenv_or_throw("BIND_PORT_TCP")),
+  multicast_ip(getenv_or_throw("MULTICAST_IP")),
+  multicast_port(getenv_or_throw("MULTICAST_PORT")),
+  glimpse_ip(getenv_or_throw("GLIMPSE_IP")),
+  glimpse_port(getenv_or_throw("GLIMPSE_PORT")),
+  rewind_ip(getenv_or_throw("REWIND_IP")),
+  rewind_port(getenv_or_throw("REWIND_PORT")),
+  username(getenv_or_throw("USERNAME")),
+  password(getenv_or_throw("PASSWORD")) {}
+
+static std::string getenv_or_throw(const char* var)
 {
-  const size_t colon_pos = ip_and_port.find(':');
-  return {
-    .ip = ip_and_port.substr(0, colon_pos),
-    .port = std::stoi(ip_and_port.substr(colon_pos + 1))
-  };
-}
-
-Config load_config(void)
-{
-  Config config;
-
-  config.client_conf = {
-    .bind_address = getenv("BIND_ADDRESS"),
-    .udp_port = std::stoi(getenv("UDP_PORT")),
-    .tcp_port = std::stoi(getenv("TCP_PORT")),
-    .username = getenv("USERNAME"),
-    .password = getenv("PASSWORD")
-  };
-
-  config.server_confs[0] = {
-    .multicast_endpoint = parse_ip_and_port(getenv("MULTICAST_ENDPOINT_1")),
-    .rewind_endpoint = parse_ip_and_port(getenv("REWIND_ENDPOINT_1")),
-    .glimpse_endpoint = parse_ip_and_port(getenv("GLIMPSE_ENDPOINT_1"))
-  };
-
-  config.server_confs[1] = {
-    .multicast_endpoint = parse_ip_and_port(getenv("MULTICAST_ENDPOINT_2")),
-    .rewind_endpoint = parse_ip_and_port(getenv("REWIND_ENDPOINT_2")),
-    .glimpse_endpoint = parse_ip_and_port(getenv("GLIMPSE_ENDPOINT_2"))
-  };
-
-  return config;
+  const char* val = std::getenv(var);
+  if (val == nullptr)
+    utils::throw_exception("Missing environment variable");
+  return val;
 }

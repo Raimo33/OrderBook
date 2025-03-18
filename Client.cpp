@@ -24,53 +24,45 @@ last edited: 2025-03-08 21:24:05
 
 using namespace std::chrono_literals;
 
-Client::Client(const Config &config) :
-  config(config),
-  server_config(config.server_confs[0]),
+Client::Client(void) :
   order_book(),
-  glimpse_address(create_address(server_config.glimpse_endpoint.ip, server_config.glimpse_endpoint.port)),
-  multicast_address(create_address(server_config.multicast_endpoint.ip, server_config.multicast_endpoint.port)),
-  rewind_address(create_address(server_config.rewind_endpoint.ip, server_config.rewind_endpoint.port)),
-  mreq(create_mreq(config.client_conf.bind_address)),
+  glimpse_address(create_address(config.glimpse_ip, config.glimpse_port)),
+  multicast_address(create_address(config.multicast_ip, config.multicast_port)),
+  rewind_address(create_address(config.rewind_ip, config.rewind_port)),
   tcp_sock_fd(create_tcp_socket()),
-  udp_sock_fd(create_udp_socket()),
-  timer_fd(create_timer_fd(50ms)),
-  orderbook_ready(false),
-  last_incoming(std::chrono::steady_clock::now()),
-  last_outgoing(std::chrono::steady_clock::now()),
-  sequence_number(0)
+  udp_sock_fd(create_udp_socket())
 {
-  bind_socket(tcp_sock_fd, config.client_conf.bind_address, config.client_conf.tcp_port);
-  bind_socket(udp_sock_fd, config.client_conf.bind_address, config.client_conf.udp_port);
+  const sockaddr_in bind_address_tcp = create_address(config.bind_ip, config.bind_port_tcp);
+  const sockaddr_in bind_address_udp = create_address(config.bind_ip, config.bind_port_udp);
 
+  bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp));
+  bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp));
+
+  ip_mreq mreq{};
+  mreq.imr_interface.s_addr = bind_address_udp.sin_addr.s_addr;
+  mreq.imr_multiaddr.s_addr = multicast_address.sin_addr.s_addr;
+
+  setsockopt(udp_sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
   connect(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address));
 }
 
-COLD sockaddr_in Client::create_address(const std::string_view ip, const uint16_t port) const noexcept
+COLD sockaddr_in Client::create_address(const std::string_view ip_str, const std::string_view port_str) const noexcept
 {
-  return {
-    .sin_family = AF_INET,
-    .sin_port = utils::bswap16(port),
-    .sin_addr = {
-      .s_addr = inet_addr(ip.data())
-    },
-    .sin_zero{}
-  };
-}
+  const char *const ip = ip_str.data();
+  const uint16_t port = std::stoi(port_str.data());
 
-COLD ip_mreq Client::create_mreq(const std::string_view bind_address) const noexcept
-{
-  return {
-    .imr_multiaddr = multicast_address.sin_addr,
-    .imr_interface = {
-      .s_addr = inet_addr(bind_address.data())
-    }
-  };
+  sockaddr_in address{};
+
+  address.sin_addr.s_addr = inet_addr(ip);
+  address.sin_family = AF_INET;
+  address.sin_port = utils::bswap16(port);
+
+  return address;
 }
 
 COLD int Client::create_tcp_socket(void) const noexcept
 {
-  const int sock_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+  const int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
   constexpr int enable = 1;
   setsockopt(sock_fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable));
@@ -82,51 +74,22 @@ COLD int Client::create_tcp_socket(void) const noexcept
 
 COLD int Client::create_udp_socket(void) const noexcept
 {
-  const int sock_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+  const int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
 
   constexpr int enable = 1;
   constexpr int priority = 255;
   setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable));
   setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority));
-  setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
   //TODO SO_RCVBUF (not < than MTU)
   //TODO SO_BINDTODEVICE
 
   return sock_fd;
 }
 
-COLD int create_timer_fd(const std::chrono::milliseconds interval)
-{
-  const int timer_fd = timerfd_create(CLOCK_MONOTONIC, 0);
-
-  const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(interval);
-  const auto nanoseconds = interval - seconds;
-
-  const struct itimerspec timer_spec = {
-    .it_interval = { .tv_sec = seconds.count(), .tv_nsec = nanoseconds.count() },
-    .it_value = { .tv_sec = seconds.count(), .tv_nsec = nanoseconds.count() }
-  };
-
-  timerfd_settime(timer_fd, 0, &timer_spec, nullptr);
-
-  return timer_fd;
-}
-
-COLD void Client::bind_socket(const int fd, const std::string_view ip, const uint16_t port) const noexcept
-{
-  sockaddr_in bind_addr;
-  bind_addr.sin_family = AF_INET;
-  bind_addr.sin_port = utils::bswap16(port);
-  inet_pton(AF_INET, ip.data(), &bind_addr.sin_addr);
-
-  bind(fd, reinterpret_cast<sockaddr *>(&bind_addr), sizeof(bind_addr));
-}
-
 Client::~Client(void)
 {
   close(tcp_sock_fd);
   close(udp_sock_fd);
-  close(timer_fd);
 }
 
 void Client::run(void)
@@ -135,101 +98,30 @@ void Client::run(void)
   update_orderbook();
 }
 
-//TODO handle server heartbeats on a separate (robustness checker ) process, while client heartbeat with interval of 1s here
 COLD void Client::fetch_orderbook(void)
 {
-  const std::unordered_map<int, Handler> handlers = {
-    { tcp_sock_fd, &Client::handle_snapshot },
-    { udp_sock_fd, &Client::handle_messages },
-    { timer_fd, &Client::handle_tcp_heartbeat_timeout }
-  };
+  send_login();
+  recv_login();
 
-  pollfd fds[] = {
-    { tcp_sock_fd, POLLIN | POLLOUT | POLLERR | POLLHUP | POLLRDHUP, 0 },
-    { udp_sock_fd, POLLIN | POLLERR | POLLHUP | POLLRDHUP, 0 },
-    { timer_fd, POLLIN, 0 }
-  };
-  constexpr nfds_t n_fds = sizeof(fds) / sizeof(fds[0]);
-  
-  while (!orderbook_ready)
-  {
-    poll(fds, n_fds, -1);
+  while (recv_snapshot() == false)
+    continue;
 
-    for (auto &fd : fds)
-      (this->*handlers.at(fd.fd))(fd.revents);
-  }
+  send_logout();
 }
 
 HOT void Client::update_orderbook(void)
 {
-  //TODO udp checks heartbeat in separate process
-
-  pollfd fd = { udp_sock_fd, POLLIN | POLLERR | POLLHUP | POLLRDHUP, 0 };
-
+  //busy polling, blocking socket
   while (true)
   {
-    poll(&fd, 1, -1);
-    handle_messages(fd.revents);
+    //recvmsg with address specified
+    //handle order
+    //pass message to RobustnessHandler which checks sequence 
   }
 }
 
-COLD void Client::handle_snapshot(const uint16_t event_mask)
+COLD bool Client::send_login(void)
 {
-  static uint8_t state = 0;
-
-  if (UNLIKELY(event_mask & (POLLERR | POLLHUP | POLLRDHUP)))
-    utils::throw_exception("Server disconnected");
-
-  switch (state)
-  {
-    case 0:
-      state += send_login(event_mask);
-      break;
-    case 1:
-      state += recv_login(event_mask);
-      break;
-    case 2:
-      state += recv_snapshot(event_mask);
-      break;
-    case 3:
-      orderbook_ready = send_logout(event_mask);
-      state *= !orderbook_ready;
-      break;
-  }
-}
-
-COLD void Client::handle_messages(const uint16_t event_mask)
-{
-  if (UNLIKELY(event_mask & (POLLERR | POLLHUP | POLLRDHUP)))
-    utils::throw_exception("Server disconnected");
-
-  //accumulate them at start, during fetch
-
-  //TODO recvmsg with address specified
-  {
-    //read packet
-    //put in queue (by sorting by sequence number)
-  }
-}
-
-HOT void Client::handle_tcp_heartbeat_timeout(UNUSED const uint16_t event_mask)
-{
-  const auto now = std::chrono::steady_clock::now();
-  
-  uint64_t _;
-  utils::safe_read(timer_fd, reinterpret_cast<char *>(&_), sizeof(_));
-
-  if (now - last_outgoing > 1s)
-    send_hearbeat();
-  if (UNLIKELY(now - last_incoming > 50ms))
-    utils::throw_exception("Server timeout");
-}
-
-COLD bool Client::send_login(const uint16_t event_mask)
-{
-  if (!(event_mask & POLLOUT))
-    return false;
-
   SoupBinTCPPacket packet{};
 
   packet.length = sizeof(packet.type) + sizeof(packet.login_request);
@@ -244,35 +136,29 @@ COLD bool Client::send_login(const uint16_t event_mask)
 
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type) + sizeof(login);
   utils::safe_send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size);
-  last_outgoing = std::chrono::steady_clock::now();
 
   return true;
 }
 
-COLD bool Client::recv_login(const uint16_t event_mask)
+COLD bool Client::recv_login(void)
 {
-  if (!(event_mask & POLLIN))
-    return false;
-
   SoupBinTCPPacket packet;
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
   utils::safe_recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size);
-  last_incoming = std::chrono::steady_clock::now();
 
   switch (packet.type)
   {
     case 'H':
-      return recv_login(event_mask);
+      return recv_login();
     case 'J':
       utils::throw_exception("Login rejected");
       UNREACHABLE;
     case 'A':
     {
       const uint16_t payload_size = utils::bswap32(packet.length) - sizeof(packet.type);
-      utils::assert(payload_size == sizeof(packet.login_acceptance), "Unexpected login acceptance size");
       utils::safe_recv(tcp_sock_fd, reinterpret_cast<char *>(&packet.login_acceptance), payload_size);
-      sequence_number = utils::atoul(packet.login_acceptance.sequence_number);
+      //TODO set sequence number in RobustnessHandler
       return true;
     }
     default:
@@ -282,21 +168,17 @@ COLD bool Client::recv_login(const uint16_t event_mask)
   UNREACHABLE;
 }
 
-bool Client::recv_snapshot(const uint16_t event_mask)
+bool Client::recv_snapshot(void)
 {
-  if (!(event_mask & POLLIN))
-    return false;
-
   SoupBinTCPPacket packet;
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
   utils::safe_recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size);
-  last_incoming = std::chrono::steady_clock::now();
 
   switch (packet.type)
   {
     case 'H':
-      return recv_snapshot(event_mask);
+      return recv_snapshot();
     case 'S':
     {
       const uint16_t payload_size = utils::bswap32(packet.length) - sizeof(packet.type);
@@ -311,11 +193,8 @@ bool Client::recv_snapshot(const uint16_t event_mask)
   UNREACHABLE;
 }
 
-COLD bool Client::send_logout(const uint16_t event_mask)
+COLD bool Client::send_logout(void)
 {
-  if (!(event_mask & POLLOUT))
-    return false;
-
   constexpr SoupBinTCPPacket packet = {
     .length = 1,
     .type = 'Z',
@@ -324,22 +203,8 @@ COLD bool Client::send_logout(const uint16_t event_mask)
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type);
 
   utils::safe_send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size);
-  last_outgoing = std::chrono::steady_clock::now();
 
   return true;
-}
-
-HOT void Client::send_hearbeat(void)
-{
-  constexpr SoupBinTCPPacket packet = {
-    .length = 1,
-    .type = 'H',
-    .client_heartbeat{}
-  };
-  constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type);
-
-  utils::safe_send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size);
-  last_outgoing = std::chrono::steady_clock::now();
 }
 
 bool Client::process_message_blocks(const std::vector<char> &buffer)
@@ -378,16 +243,12 @@ bool Client::process_message_blocks(const std::vector<char> &buffer)
         handle_deleted_order(block);
         break;
       case 'G':
-      {
-        const uint64_t sequence_number = utils::atoul(block.snapshot_completion.sequence);
-        utils::assert(sequence_number == ++this->sequence_number, "Unexpected sequence number");
+        //TODO pass received sequence number to RobustnessHandler
         return true;
-      }
       default:
         break;
     }
 
-    sequence_number++;
     std::advance(it, block.length);
   }
 
@@ -417,15 +278,4 @@ HOT void Client::handle_deleted_order(const MessageBlock &block)
   // const uint64_t volume = utils::bswap32(deleted_order.quantity);
 
   // order_book.removeOrder(side, price, volume);
-}
-
-HOT void Client::handle_udp_heartbeat_timeout(UNUSED const uint16_t event_mask)
-{
-  const auto &now = std::chrono::steady_clock::now();
-
-  uint64_t _;
-  utils::safe_read(timer_fd, reinterpret_cast<char *>(&_), sizeof(_));
-
-  if (now - last_incoming > 50ms)
-    utils::throw_exception("Server timeout");
 }
