@@ -62,7 +62,9 @@ COLD ip_mreq Client::create_mreq(const std::string_view bind_address) const noex
 {
   return {
     .imr_multiaddr = multicast_address.sin_addr,
-    .imr_interface.s_addr = inet_addr(bind_address.data())
+    .imr_interface = {
+      .s_addr = inet_addr(bind_address.data())
+    }
   };
 }
 
@@ -133,6 +135,7 @@ void Client::run(void)
   update_orderbook();
 }
 
+//TODO handle server heartbeats on a separate (robustness checker ) process, while client heartbeat with interval of 1s here
 COLD void Client::fetch_orderbook(void)
 {
   const std::unordered_map<int, Handler> handlers = {
