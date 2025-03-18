@@ -28,9 +28,13 @@ class Client
     int create_timer_fd(const std::chrono::milliseconds &timeout) const noexcept;
     void bind_socket(const int fd, const std::string_view ip, const uint16_t port) const noexcept;
 
-    void fetch_snapshot(const uint16_t event_mask);
-    void accumulate_new_messages(const uint16_t event_mask);
-    void process_live_updates(const uint16_t event_mask);
+    void fetch_orderbook(void);
+    void update_orderbook(void);
+
+    using Handler = void (Client::*)(const uint16_t);
+
+    void handle_snapshot(const uint16_t event_mask);
+    void handle_messages(const uint16_t event_mask);
     void handle_tcp_heartbeat_timeout(const uint16_t event_mask);
     void handle_udp_heartbeat_timeout(const uint16_t event_mask);
 

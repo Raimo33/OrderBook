@@ -62,7 +62,7 @@ COLD ip_mreq Client::create_mreq(const std::string_view bind_address) const noex
 {
   return {
     .imr_multiaddr = multicast_address.sin_addr,
-    .imr_interface = inet_addr(bind_address.data())
+    .imr_interface.s_addr = inet_addr(bind_address.data())
   };
 }
 
@@ -127,57 +127,50 @@ Client::~Client(void)
   close(timer_fd);
 }
 
-//TODO overhead of using unordered_map
 void Client::run(void)
 {
-  using Handler = void (Client::*)(const uint16_t);
+  fetch_orderbook();
+  update_orderbook();
+}
 
+COLD void Client::fetch_orderbook(void)
+{
+  const std::unordered_map<int, Handler> handlers = {
+    { tcp_sock_fd, &Client::handle_snapshot },
+    { udp_sock_fd, &Client::handle_messages },
+    { timer_fd, &Client::handle_tcp_heartbeat_timeout }
+  };
+
+  pollfd fds[] = {
+    { tcp_sock_fd, POLLIN | POLLOUT | POLLERR | POLLHUP | POLLRDHUP, 0 },
+    { udp_sock_fd, POLLIN | POLLERR | POLLHUP | POLLRDHUP, 0 },
+    { timer_fd, POLLIN, 0 }
+  };
+  constexpr nfds_t n_fds = sizeof(fds) / sizeof(fds[0]);
+  
+  while (!orderbook_ready)
   {
-    const std::unordered_map<int, Handler> handlers = {
-      { tcp_sock_fd, &Client::fetch_snapshot },
-      { udp_sock_fd, &Client::accumulate_new_messages },
-      { timer_fd, &Client::handle_tcp_heartbeat_timeout }
-    };
+    poll(fds, n_fds, -1);
 
-    pollfd fds[] = {
-      { tcp_sock_fd, POLLIN | POLLOUT | POLLERR | POLLHUP | POLLRDHUP, 0 },
-      { udp_sock_fd, POLLIN | POLLERR | POLLHUP | POLLRDHUP, 0 },
-      { timer_fd, POLLIN, 0 }
-    };
-    constexpr nfds_t n_fds = sizeof(fds) / sizeof(fds[0]);
-    
-    while (!orderbook_ready)
-    {
-      poll(fds, n_fds, -1);
-
-      for (auto &fd : fds)
-        (this->*handlers.at(fd.fd))(fd.revents);
-    }
-  }
-
-  {
-    const std::unordered_map<int, Handler> handlers = {
-      { udp_sock_fd, &Client::process_live_updates },
-      { timer_fd, &Client::handle_udp_heartbeat_timeout }
-    };
-
-    pollfd fds[] = {
-      { udp_sock_fd, POLLIN | POLLERR | POLLHUP | POLLRDHUP, 0 },
-      { timer_fd, POLLIN, 0 }
-    };
-    constexpr nfds_t n_fds = sizeof(fds) / sizeof(fds[0]);
-
-    while (true)
-    {
-      poll(fds, n_fds, -1);
-
-      for (auto &fd : fds)
-        (this->*handlers.at(fd.fd))(fd.revents);
-    }
+    for (auto &fd : fds)
+      (this->*handlers.at(fd.fd))(fd.revents);
   }
 }
 
-COLD void Client::fetch_snapshot(const uint16_t event_mask)
+HOT void Client::update_orderbook(void)
+{
+  //TODO udp checks heartbeat in separate process
+
+  pollfd fd = { udp_sock_fd, POLLIN | POLLERR | POLLHUP | POLLRDHUP, 0 };
+
+  while (true)
+  {
+    poll(&fd, 1, -1);
+    handle_messages(fd.revents);
+  }
+}
+
+COLD void Client::handle_snapshot(const uint16_t event_mask)
 {
   static uint8_t state = 0;
 
@@ -202,26 +195,17 @@ COLD void Client::fetch_snapshot(const uint16_t event_mask)
   }
 }
 
-COLD void Client::accumulate_new_messages(const uint16_t event_mask)
+COLD void Client::handle_messages(const uint16_t event_mask)
 {
   if (UNLIKELY(event_mask & (POLLERR | POLLHUP | POLLRDHUP)))
     utils::throw_exception("Server disconnected");
+
+  //accumulate them at start, during fetch
 
   //TODO recvmsg with address specified
   {
     //read packet
     //put in queue (by sorting by sequence number)
-  }
-}
-
-HOT void Client::process_live_updates(const uint16_t event_mask)
-{
-  if (UNLIKELY(event_mask & (POLLERR | POLLHUP | POLLRDHUP)))
-    utils::throw_exception("Server disconnected");
-
-  {
-    //read packet
-    //process packet
   }
 }
 
