@@ -14,6 +14,17 @@ last edited: 2025-03-08 21:24:05
 #include "OrderBook.hpp"
 #include "macros.hpp"
 
+OrderBook::OrderBook(void) :
+  price_arrays{
+    std::vector<uint32_t>(1, 0),
+    std::vector<uint32_t>(1, 0)
+  },
+  volume_arrays{
+    std::vector<uint64_t>(1, 0),
+    std::vector<uint64_t>(1, 0)
+  }
+{}
+
 OrderBook::~OrderBook(void) {}
 
 HOT inline std::pair<uint32_t, uint32_t> OrderBook::getBestPrices(void) const

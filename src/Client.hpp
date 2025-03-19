@@ -8,22 +8,24 @@
 #include <chrono>
 
 #include "Config.hpp"
+#include "SanityChecker.hpp"
 #include "OrderBook.hpp"
+#include "MessageDispatcher.hpp"
 #include "Packets.hpp"
 
 class Client
 {
   public:
     Client(void);
-    ~Client(void);
+    ~Client(void) noexcept;
 
-    void Run(void);
+    void run(void);
 
   private:
 
     sockaddr_in createAddress(const std::string_view ip, const std::string_view port) const noexcept;
-    int createTcpSocket(void) const noexcept;
-    int createUdpSocket(void) const noexcept;
+    int createTcpSocket(void) const;
+    int createUdpSocket(void) const;
 
     void fetchOrderbook(void);
     void updateOrderbook(void);
@@ -39,7 +41,9 @@ class Client
     void handleDeletedOrder(const MessageBlock &block);
 
     Config config;
+    SanityChecker sanity_checker;
     OrderBook order_book;
+    MessageDispatcher dispatcher;
     const sockaddr_in glimpse_address;
     const sockaddr_in multicast_address;
     const sockaddr_in rewind_address;

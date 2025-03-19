@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
 #pragma pack(push, 1)
 
@@ -17,13 +16,13 @@ struct SoupBinTCPPacket
       char username[6];
       char password[10];
       char requested_session[10];
-      char requested_sequence_number[20];
+      char requested_sequence[20];
     } login_request;
   
     struct
     {
       char session[10];
-      char sequence_number[20];
+      char sequence[20];
     } login_acceptance;
   
     struct

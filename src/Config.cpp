@@ -1,5 +1,5 @@
 #include "Config.hpp"
-#include "utils.hpp"
+#include "SanityChecker.hpp"
 
 static std::string getenv_or_throw(const char* var);
 
@@ -20,6 +20,6 @@ static std::string getenv_or_throw(const char* var)
 {
   const char* val = std::getenv(var);
   if (val == nullptr)
-    utils::throw_exception("Missing environment variable");
+    SanityChecker::throwException("Missing environment variable");
   return val;
 }
