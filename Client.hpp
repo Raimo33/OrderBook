@@ -22,7 +22,6 @@ class Client
   private:
 
     sockaddr_in createAddress(const std::string_view ip, const std::string_view port) const noexcept;
-    ip_mreq createMreq(const std::string_view bind_ip_str) const noexcept;
     int createTcpSocket(void) const noexcept;
     int createUdpSocket(void) const noexcept;
 

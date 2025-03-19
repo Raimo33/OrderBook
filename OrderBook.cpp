@@ -16,12 +16,9 @@ last edited: 2025-03-08 21:24:05
 
 OrderBook::~OrderBook(void) {}
 
-HOT std::pair<uint32_t, uint32_t> OrderBook::getBestPrices(void) const
+HOT inline std::pair<uint32_t, uint32_t> OrderBook::getBestPrices(void) const
 {
-  static const auto &bids = price_arrays[BID];
-  static const auto &asks = price_arrays[ASK];
-
-  return std::make_pair(bids.back(), asks.back());
+  return std::make_pair(price_arrays[BID].back(), price_arrays[ASK].back());
 }
 
 HOT inline void OrderBook::addOrder(const Side side, const uint32_t price, const uint64_t volume)
@@ -46,7 +43,6 @@ HOT inline void OrderBook::addOrder(const Side side, const uint32_t price, const
   }
 }
 
-//TODO UB if the order is not in the book or the volume is greater than the available volume
 HOT inline void OrderBook::removeOrder(const Side side, const uint32_t price, const uint64_t volume)
 {
   std::vector<uint32_t> &prices = price_arrays[side];
@@ -66,19 +62,20 @@ HOT inline void OrderBook::removeOrder(const Side side, const uint32_t price, co
 HOT inline void OrderBook::executeOrder(const Side side, uint64_t volume)
 {
   const Side other_side = static_cast<Side>(side ^ 1);
-  auto &volumes = volume_arrays[other_side];
-  
-  while (volume > 0 && !volumes.empty())
+  auto& volumes = volume_arrays[other_side];
+  size_t size = volumes.size();
+
+  while (volume & size)
   {
-    uint64_t &available_volume = volumes.back();
-    uint64_t traded = std::min(volume, available_volume);
+    uint64_t& available = volumes[size - 1];
+    const uint64_t traded = std::min(available, volume);
 
-    available_volume -= traded;
+    available -= traded;
     volume -= traded;
-
-    if (UNLIKELY(available_volume == 0))
-      volumes.pop_back();
+    size -= (available == 0);
   }
+
+  volumes.resize(size);
 }
 
 template <typename Compare>
@@ -87,7 +84,7 @@ HOT std::vector<uint32_t>::const_iterator OrderBook::findPrice(const std::vector
   auto it = prices.crbegin();
   auto end = prices.crend();
 
-  //TODO SIMD
+  //TODO SIMD (backwards)
   while (it != end && comp(*it, price))
     ++it;
 
