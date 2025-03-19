@@ -6,14 +6,20 @@
 #include "SanityChecker.hpp"
 
 SanityChecker::SanityChecker(void) :
-  timer_fd(timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK)),
+  timer_fd(createTimer()),
   sequence_number(0),
   last_received(std::chrono::steady_clock::now()),
   last_sent(std::chrono::steady_clock::now())
 {
+
+}
+
+int SanityChecker::createTimer(void) const
+{
   bool error = false;
 
-  error |= (timer_fd == -1);
+  const int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+  error |= (fd == -1);
 
   struct itimerspec heartbeat_timer{};
   heartbeat_timer.it_interval.tv_sec = 0;
@@ -21,7 +27,11 @@ SanityChecker::SanityChecker(void) :
   heartbeat_timer.it_interval.tv_sec = 0;
   heartbeat_timer.it_value.tv_nsec = 50'000'000;
 
-  error |= (timerfd_settime(timer_fd, 0, &heartbeat_timer, nullptr) == -1);
+  error |= (timerfd_settime(fd, 0, &heartbeat_timer, nullptr) == -1);
+  if (error)
+    throwException("Failed to initialize timer");
+
+  return fd;
 }
 
 SanityChecker::~SanityChecker(void) noexcept
@@ -34,7 +44,7 @@ SanityChecker::~SanityChecker(void) noexcept
   throw std::runtime_error(message.data());
 }
 
-void SanityChecker::validateMessageBlock(const MessageBlock &block) const
+void SanityChecker::validateMessageBlock(const MessageBlock &block)
 {
   //TODO constexpr
   static const std::unordered_map<char, uint16_t> message_sizes = {
@@ -56,5 +66,3 @@ void SanityChecker::validateMessageBlock(const MessageBlock &block) const
   if (it == message_sizes.end())
     throwException("Unrecognized message type");
 }
-
-

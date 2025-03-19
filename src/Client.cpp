@@ -14,6 +14,8 @@ last edited: 2025-03-08 21:24:05
 #include <unordered_map>
 #include <byteswap.h>
 #include <unistd.h>
+#include <cstring>
+#include <immintrin.h>
 
 #include "Client.hpp"
 #include "Config.hpp"
@@ -87,7 +89,7 @@ COLD int Client::createUdpSocket(void) const noexcept
 {
   bool error = false;
 
-  const int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+  const int sock_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
   error |= (sock_fd == -1);
 
   constexpr int enable = 1;
@@ -131,12 +133,38 @@ COLD void Client::fetchOrderbook(void)
 
 HOT void Client::updateOrderbook(void)
 {
-  //busy polling, blocking socket
+  constexpr uint8_t MAX_MSGS = 32;
+  constexpr uint16_t MTU = 1500;
+  constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
+
+  mmsghdr msgs[MAX_MSGS];
+  iovec iov[MAX_MSGS][2];
+  MoldUDP64Header headers[MAX_MSGS];
+  char payloads[MAX_MSGS][MAX_MSG_SIZE];
+
+  //TODO constexpr
+  for (uint8_t i = 0; i < MAX_MSGS; ++i)
+  {
+    iov[i][0] = { &headers[i], sizeof(headers[i]) };
+    iov[i][1] = { payloads[i], sizeof(payloads[i]) };
+
+    msgs[i].msg_hdr = {
+      .msg_name = (void*)&multicast_address,
+      .msg_namelen = sizeof(multicast_address),
+      .msg_iov = iov[i],
+      .msg_iovlen = 2,
+      .msg_control = nullptr,
+      .msg_controllen = 0
+    };
+  }
+
   while (true)
   {
-    //recvmsg with address specified
-    //handle order
-    //pass message to RobustnessHandler which checks sequence 
+    const uint8_t packets_count = dispatcher.recvmmsg(udp_sock_fd, msgs, MAX_MSGS);
+    //TODO sanity checker checks flags (truncation, error)
+    //TODO sanity checker adds msg_count to the sequence number
+    //TODO process message blocks
+    _mm_pause();
   }
 }
 
