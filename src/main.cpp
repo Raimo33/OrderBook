@@ -20,7 +20,7 @@ int main(void)
   try
   {
     Client client;
-    client.run();
+    client.Run();
   }
   catch (const std::exception &e)
   {

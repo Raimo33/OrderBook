@@ -1,6 +1,6 @@
 TARGET := OrderBook
 
-SRCS := main.cpp Client.cpp OrderBook.cpp Config.cpp utils.cpp
+SRCS := $(addprefix src/, main.cpp Client.cpp OrderBook.cpp Config.cpp utils.cpp)
 OBJS := $(SRCS:.cpp=.o)
 DEPS := $(OBJS:.o=.d)
 
