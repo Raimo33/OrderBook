@@ -1,5 +1,7 @@
 #include "Config.hpp"
-#include "SanityChecker.hpp"
+#include "ErrorHandler.hpp"
+
+extern bool error;
 
 static std::string getenv_or_throw(const char* var);
 
@@ -19,7 +21,6 @@ Config::Config(void) :
 static std::string getenv_or_throw(const char* var)
 {
   const char* val = std::getenv(var);
-  if (val == nullptr)
-    SanityChecker::throwException("Missing environment variable");
+  error |= (val == nullptr);
   return val;
 }

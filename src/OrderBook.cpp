@@ -14,6 +14,8 @@ last edited: 2025-03-08 21:24:05
 #include "OrderBook.hpp"
 #include "macros.hpp"
 
+extern bool error;
+
 OrderBook::OrderBook(void) :
   price_arrays{
     std::vector<uint32_t>(1, 0),
@@ -62,8 +64,13 @@ HOT inline void OrderBook::removeOrder(const Side side, const uint32_t price, co
   auto price_it = findPrice(prices, price, std::not_equal_to<uint32_t>());
   auto volume_it = volumes.begin() + std::distance(prices.cbegin(), price_it);
 
-  *volume_it -= volume;
-  if (UNLIKELY(*volume_it == 0))
+  auto& value = *volume_it;
+
+  error |= (price_it == prices.end());
+  error |= (value < volume);
+
+  value -= volume;
+  if (UNLIKELY(value == 0))
   {
     prices.erase(price_it);
     volumes.erase(volume_it);

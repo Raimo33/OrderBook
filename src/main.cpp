@@ -15,16 +15,12 @@ last edited: 2025-03-08 21:24:05
 #include "Client.hpp"
 #include "Config.hpp"
 
+extern bool error;
+
 int main(void)
 {
-  try
-  {
-    Client client;
-    client.run();
-  }
-  catch (const std::exception &e)
-  {
-    std::cerr << "Error: " << e.what() << std::endl;
-    return 1;
-  }
+  error = false;
+
+  Client client;
+  client.run();
 }

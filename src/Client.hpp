@@ -8,7 +8,7 @@
 #include <chrono>
 
 #include "Config.hpp"
-#include "SanityChecker.hpp"
+#include "ErrorHandler.hpp"
 #include "OrderBook.hpp"
 #include "Packets.hpp"
 
@@ -40,11 +40,11 @@ class Client
     void handleDeletedOrder(const MessageBlock &block);
 
     Config config;
-    SanityChecker sanity_checker;
     OrderBook order_book;
     const sockaddr_in glimpse_address;
     const sockaddr_in multicast_address;
     const sockaddr_in rewind_address;
     const int tcp_sock_fd;
     const int udp_sock_fd;
+    uint64_t sequence_number;
 };
