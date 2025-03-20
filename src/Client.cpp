@@ -121,21 +121,21 @@ COLD void Client::fetchOrderbook(void)
 
 HOT void Client::updateOrderbook(void)
 {
-  constexpr uint8_t MAX_MSGS = 32;
+  constexpr uint8_t MAX_PACKETS = 64 + 1; //+1 added for safe prefetching past the last packet 
   constexpr uint16_t MTU = 1500;
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
-  mmsghdr msgs[MAX_MSGS];
-  iovec iov[MAX_MSGS][2];
-  MoldUDP64Header headers[MAX_MSGS];
-  char payloads[MAX_MSGS][MAX_MSG_SIZE];
+  alignas(64) mmsghdr packets[MAX_PACKETS];
+  alignas(64) iovec iov[MAX_PACKETS][2];
+  alignas(64) MoldUDP64Header headers[MAX_PACKETS];
+  alignas(64) char payloads[MAX_PACKETS][MAX_MSG_SIZE];
 
-  for (uint8_t i = 0; i < MAX_MSGS; ++i)
+  for (uint8_t i = 0; i < MAX_PACKETS; ++i)
   {
     iov[i][0] = { &headers[i], sizeof(headers[i]) };
     iov[i][1] = { payloads[i], sizeof(payloads[i]) };
 
-    msgs[i].msg_hdr = {
+    packets[i].msg_hdr = {
       .msg_name = (void*)&multicast_address,
       .msg_namelen = sizeof(multicast_address),
       .msg_iov = iov[i],
@@ -147,10 +147,27 @@ HOT void Client::updateOrderbook(void)
 
   while (true)
   {
-    const int8_t packets_count = recvmmsg(udp_sock_fd, msgs, MAX_MSGS, MSG_WAITFORONE, nullptr);
+    int8_t packets_count = recvmmsg(udp_sock_fd, packets, MAX_PACKETS, MSG_WAITFORONE, nullptr);
     error |= (packets_count == -1);
-    //TODO set error if sequence_number + message_count != sequence_number
-    //TODO process message blocks
+
+    const MoldUDP64Header *header_ptr = headers;
+    const char *payload_ptr = reinterpret_cast<char *>(payloads);
+
+    while (packets_count--)
+    {
+      __builtin_prefetch(header_ptr + 1, 0, 0);
+      __builtin_prefetch(payload_ptr + MAX_MSG_SIZE, 0, 0);
+
+      const uint64_t sequence_number = bswap_64(header_ptr->sequence_number);
+      const uint16_t message_count = bswap_16(header_ptr->message_count);
+
+      error |= (sequence_number != this->sequence_number);
+
+      processMessageBlocks(payload_ptr, message_count); //updates the sequence number
+
+      header_ptr++;
+      payload_ptr += MAX_MSG_SIZE;
+    }
   }
 }
 
