@@ -1,35 +1,62 @@
 #include <sys/timerfd.h>
+#include <sys/signalfd.h>
+#include <signal.h>
 #include <stdexcept>
 #include <unistd.h>
 #include <unordered_map>
 
 #include "SanityChecker.hpp"
 
+using namespace std::chrono_literals;
+
 SanityChecker::SanityChecker(void) :
-  timer_fd(createTimer()),
+  timer_fd(createTimerFd(50ms)),
+  signal_fd(createSignalFd(SIGTERM | SIGINT | SIGPIPE)),
   sequence_number(0),
   last_received(std::chrono::steady_clock::now()),
   last_sent(std::chrono::steady_clock::now())
 {
-
+  //TODO setup timer handler
+  //TODO setup signal handler
 }
 
-int SanityChecker::createTimer(void) const
+int SanityChecker::createTimerFd(const std::chrono::milliseconds interval) const
 {
   bool error = false;
 
   const int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
   error |= (fd == -1);
 
-  struct itimerspec heartbeat_timer{};
-  heartbeat_timer.it_interval.tv_sec = 0;
-  heartbeat_timer.it_value.tv_nsec = 50'000'000;
-  heartbeat_timer.it_interval.tv_sec = 0;
-  heartbeat_timer.it_value.tv_nsec = 50'000'000;
+  time_t sec = interval.count() / 1000;
+  long nsec = (interval.count() % 1000) * 1000000;
+
+  itimerspec heartbeat_timer = {
+    .it_interval = { sec, nsec },
+    .it_value = { sec, nsec }
+  };
 
   error |= (timerfd_settime(fd, 0, &heartbeat_timer, nullptr) == -1);
+
   if (error)
     throwException("Failed to initialize timer");
+
+  return fd;
+}
+
+int SanityChecker::createSignalFd(const int sigmask) const
+{
+  bool error = false;
+
+  sigset_t mask;
+  error |= (sigemptyset(&mask) == -1);
+  error |= (sigaddset(&mask, sigmask) == -1);
+  error |= (sigprocmask(SIG_BLOCK, &mask, nullptr) == -1);
+
+  const int fd = signalfd(-1, &mask, SFD_NONBLOCK);
+  error |= (fd == -1);
+
+  if (error)
+    throwException("Failed to initialize signal fd");
 
   return fd;
 }

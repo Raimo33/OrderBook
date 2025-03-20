@@ -24,7 +24,8 @@ class SanityChecker
     void validateMessageBlock(const MessageBlock &block);
 
   private:
-    int createTimer(void) const;
+    int createTimerFd(const std::chrono::milliseconds interval) const;
+    int createSignalFd(const int sigmask) const;
 
     const int timer_fd;
     const int signal_fd;

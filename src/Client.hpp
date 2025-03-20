@@ -10,7 +10,6 @@
 #include "Config.hpp"
 #include "SanityChecker.hpp"
 #include "OrderBook.hpp"
-#include "MessageDispatcher.hpp"
 #include "Packets.hpp"
 
 class Client
@@ -43,7 +42,6 @@ class Client
     Config config;
     SanityChecker sanity_checker;
     OrderBook order_book;
-    MessageDispatcher dispatcher;
     const sockaddr_in glimpse_address;
     const sockaddr_in multicast_address;
     const sockaddr_in rewind_address;

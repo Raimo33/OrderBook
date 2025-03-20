@@ -15,7 +15,6 @@ last edited: 2025-03-08 21:24:05
 #include <byteswap.h>
 #include <unistd.h>
 #include <cstring>
-#include <immintrin.h>
 
 #include "Client.hpp"
 #include "Config.hpp"
@@ -27,7 +26,6 @@ Client::Client(void) :
   config(),
   sanity_checker(),
   order_book(),
-  dispatcher(sanity_checker),
   glimpse_address(createAddress(config.glimpse_ip, config.glimpse_port)),
   multicast_address(createAddress(config.multicast_ip, config.multicast_port)),
   rewind_address(createAddress(config.rewind_ip, config.rewind_port)),
@@ -89,7 +87,7 @@ COLD int Client::createUdpSocket(void) const noexcept
 {
   bool error = false;
 
-  const int sock_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+  const int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
   error |= (sock_fd == -1);
 
   constexpr int enable = 1;
@@ -99,9 +97,11 @@ COLD int Client::createUdpSocket(void) const noexcept
   error |= (setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable) == -1));
   error |= (setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority) == -1));
   error |= (setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &disable, sizeof(disable) == -1));
+  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_BUSY_POLL, &enable, sizeof(enable) == -1));
   //TODO SO_RCVBUF (not < than MTU)
   //TODO SO_BINDTODEVICE
   //TODO IP_MULTICAST_IF
+  //TODO SO_BUSY_POLL_BUDGET
   if (error)
     SanityChecker::throwException("Error during socket setup");
 
@@ -160,11 +160,11 @@ HOT void Client::updateOrderbook(void)
 
   while (true)
   {
-    const uint8_t packets_count = dispatcher.recvmmsg(udp_sock_fd, msgs, MAX_MSGS);
+    const uint8_t packets_count = recvmmsg(udp_sock_fd, msgs, MAX_MSGS, MSG_WAITFORONE, nullptr);
+    sanity_checker.updateLastReceived();
     //TODO sanity checker checks flags (truncation, error)
     //TODO sanity checker adds msg_count to the sequence number
     //TODO process message blocks
-    _mm_pause();
   }
 }
 
@@ -183,7 +183,8 @@ COLD bool Client::sendLogin(void)
   login.requested_sequence[0] = '1';
 
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type) + sizeof(login);
-  dispatcher.send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size);
+  send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size, 0);
+  sanity_checker.updateLastSent();
 
   return true;
 }
@@ -193,19 +194,22 @@ COLD bool Client::recvLogin(void)
   SoupBinTCPPacket packet;
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
-  dispatcher.recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size);
+  recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size, 0);
+  sanity_checker.updateLastReceived();
 
   switch (packet.type)
   {
     case 'H':
       return recvLogin();
     case 'J':
+      //TODO read the message body and get the reason
       SanityChecker::throwException("Login rejected");
       UNREACHABLE;
     case 'A':
     {
       const uint16_t payload_size = bswap_32(packet.length) - sizeof(packet.type);
-      dispatcher.recv(tcp_sock_fd, reinterpret_cast<char *>(&packet.login_acceptance), payload_size);
+      recv(tcp_sock_fd, reinterpret_cast<char *>(&packet.login_acceptance), payload_size, 0);
+      sanity_checker.updateLastReceived();
       const uint64_t sequence_number = std::stoull(packet.login_acceptance.sequence);
       sanity_checker.setSequenceNumber(sequence_number);
       return true;
@@ -222,7 +226,8 @@ bool Client::recvSnapshot(void)
   SoupBinTCPPacket packet;
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
-  dispatcher.recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size);
+  recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size, 0);
+  sanity_checker.updateLastReceived();
 
   switch (packet.type)
   {
@@ -232,7 +237,8 @@ bool Client::recvSnapshot(void)
     {
       const uint16_t payload_size = bswap_32(packet.length) - sizeof(packet.type);
       std::vector<char> buffer(payload_size);
-      dispatcher.recv(tcp_sock_fd, buffer.data(), payload_size);
+      recv(tcp_sock_fd, buffer.data(), payload_size, 0);
+      sanity_checker.updateLastReceived();
       return processMessageBlocks(buffer);
     }
     default:
@@ -251,7 +257,8 @@ COLD bool Client::sendLogout(void)
   };
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type);
 
-  dispatcher.send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size);
+  send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size, 0);
+  sanity_checker.updateLastSent();
 
   return true;
 }
