@@ -121,7 +121,7 @@ COLD void Client::fetchOrderbook(void)
 
 HOT void Client::updateOrderbook(void)
 {
-  constexpr uint8_t MAX_PACKETS = 64 + 1; //+1 added for safe prefetching past the last packet 
+  constexpr uint8_t MAX_PACKETS = 64; //+1 added for safe prefetching past the last packet 
   constexpr uint16_t MTU = 1500;
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
@@ -147,7 +147,7 @@ HOT void Client::updateOrderbook(void)
 
   while (true)
   {
-    int8_t packets_count = recvmmsg(udp_sock_fd, packets, MAX_PACKETS, MSG_WAITFORONE, nullptr);
+    int8_t packets_count = recvmmsg(udp_sock_fd, packets, MAX_PACKETS - 1, MSG_WAITFORONE, nullptr);
     error |= (packets_count == -1);
 
     const MoldUDP64Header *header_ptr = headers;
