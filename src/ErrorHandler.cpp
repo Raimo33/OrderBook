@@ -11,7 +11,7 @@
 
 using namespace std::chrono_literals;
 
-extern bool error;
+extern volatile bool error;
 
 ErrorHandler::ErrorHandler(void)
 {
@@ -28,10 +28,8 @@ ErrorHandler::~ErrorHandler(void) noexcept {}
 
 void ErrorHandler::start(void)
 {
-  while (true)
-  {
-    if (UNLIKELY(error))
-      throw std::runtime_error("Error occured, shit your pants");
+  while (LIKELY(!error))
     _mm_pause();
-  }
+
+  throw std::runtime_error("Error detected, shit your pants");
 }

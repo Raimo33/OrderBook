@@ -22,7 +22,7 @@ last edited: 2025-03-08 21:24:05
 
 using namespace std::chrono_literals;
 
-extern bool error;
+extern volatile bool error;
 
 Client::Client(void) :
   config(),

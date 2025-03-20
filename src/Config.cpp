@@ -1,7 +1,7 @@
 #include "Config.hpp"
 #include "ErrorHandler.hpp"
 
-extern bool error;
+extern volatile bool error;
 
 static std::string getenv_or_throw(const char* var);
 

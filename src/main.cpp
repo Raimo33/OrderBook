@@ -15,7 +15,7 @@ last edited: 2025-03-08 21:24:05
 #include "Client.hpp"
 #include "Config.hpp"
 
-extern bool error;
+extern volatile bool error;
 
 int main(void)
 {
