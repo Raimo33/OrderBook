@@ -12,6 +12,7 @@ last edited: 2025-03-08 21:24:05
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <unordered_map>
+#include <array>
 #include <byteswap.h>
 #include <unistd.h>
 #include <cstring>
@@ -121,14 +122,15 @@ COLD void Client::fetchOrderbook(void)
 
 HOT void Client::updateOrderbook(void)
 {
-  constexpr uint8_t MAX_PACKETS = 64; //+1 added for safe prefetching past the last packet 
+  constexpr uint8_t MAX_PACKETS = 64;
   constexpr uint16_t MTU = 1500;
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
-  alignas(64) mmsghdr packets[MAX_PACKETS];
-  alignas(64) iovec iov[MAX_PACKETS][2];
-  alignas(64) MoldUDP64Header headers[MAX_PACKETS];
-  alignas(64) char payloads[MAX_PACKETS][MAX_MSG_SIZE];
+  //+1 added for safe prefetching past the last packet 
+  alignas(64) mmsghdr packets[MAX_PACKETS + 1];
+  alignas(64) iovec iov[MAX_PACKETS + 1][2];
+  alignas(64) MoldUDP64Header headers[MAX_PACKETS + 1];
+  alignas(64) char payloads[MAX_PACKETS + 1][MAX_MSG_SIZE];
 
   for (uint8_t i = 0; i < MAX_PACKETS; ++i)
   {
@@ -147,7 +149,7 @@ HOT void Client::updateOrderbook(void)
 
   while (true)
   {
-    int8_t packets_count = recvmmsg(udp_sock_fd, packets, MAX_PACKETS - 1, MSG_WAITFORONE, nullptr);
+    int8_t packets_count = recvmmsg(udp_sock_fd, packets, MAX_PACKETS, MSG_WAITFORONE, nullptr);
     error |= (packets_count == -1);
 
     const MoldUDP64Header *header_ptr = headers;
@@ -163,7 +165,7 @@ HOT void Client::updateOrderbook(void)
 
       error |= (sequence_number != this->sequence_number);
 
-      processMessageBlocks(payload_ptr, message_count); //updates the sequence number
+      processMessageBlocks(payload_ptr, message_count);
 
       header_ptr++;
       payload_ptr += MAX_MSG_SIZE;
@@ -258,30 +260,57 @@ bool Client::processMessageBlocks(const std::vector<char> &buffer)
 
   while (it != end)
   {
-    const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(&*it);
-    const uint16_t block_length = bswap_16(block.length);
+    const MessageBlock *block = reinterpret_cast<const MessageBlock *>(&*it);
+    const uint16_t block_length = bswap_16(block->length);
 
-    switch (block.type)
+    switch (block->type)
     {
       case 'A':
-        handleNewOrder(block);
+        handleNewOrder(*block);
         break;
       case 'D':
-        handleDeletedOrder(block);
+        handleDeletedOrder(*block);
         break;
       case 'G':
       {
-        const uint64_t sequence_number = std::stoull(block.snapshot_completion.sequence);
+        const uint64_t sequence_number = std::stoull(block->snapshot_completion.sequence);
         error |= (sequence_number != ++this->sequence_number);
         return true;
       }
     }
 
     sequence_number++;
-    std::advance(it, block.length);
+    std::advance(it, block_length);
   }
 
   return false;
+}
+
+HOT void Client::processMessageBlocks(const char *buffer, uint16_t blocks_count)
+{
+  using MessageHandler = void (Client::*)(const MessageBlock &);
+  
+  alignas(64) constexpr std::array<MessageHandler, 256> handlers = []()
+  {
+    std::array<MessageHandler, 256> handlers{};
+    handlers['A'] = &Client::handleNewOrder;
+    handlers['D'] = &Client::handleDeletedOrder;
+    //TODO add all the other handlers (they must be here otherwise UB)
+    return handlers;
+  }();
+
+  while (blocks_count--)
+  {
+    const MessageBlock *block = reinterpret_cast<const MessageBlock *>(buffer);
+    const uint16_t block_length = bswap_16(block->length);
+
+    __builtin_prefetch(buffer + block_length, 0, 0);
+
+    (this->*handlers[block->type])(*block);
+
+    sequence_number++;
+    buffer += block_length;
+  }
 }
 
 HOT void Client::handleNewOrder(const MessageBlock &block)

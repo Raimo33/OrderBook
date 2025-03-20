@@ -13,7 +13,7 @@ using namespace std::chrono_literals;
 
 extern volatile bool error;
 
-ErrorHandler::ErrorHandler(void)
+COLD ErrorHandler::ErrorHandler(void)
 {
   struct sigaction sa{};
   sa.sa_handler = [](int) { error = true; };
@@ -24,9 +24,9 @@ ErrorHandler::ErrorHandler(void)
   error |= (sigaction(SIGPIPE, &sa, nullptr) == -1);
 }
 
-ErrorHandler::~ErrorHandler(void) noexcept {}
+COLD ErrorHandler::~ErrorHandler(void) noexcept {}
 
-void ErrorHandler::start(void)
+COLD void ErrorHandler::start(void)
 {
   while (LIKELY(!error))
     _mm_pause();

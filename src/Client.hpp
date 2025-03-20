@@ -35,6 +35,7 @@ class Client
     bool sendLogout(void);
 
     bool processMessageBlocks(const std::vector<char> &buffer);
+    void processMessageBlocks(const char *buffer, uint16_t blocks_count);
 
     void handleNewOrder(const MessageBlock &block);
     void handleDeletedOrder(const MessageBlock &block);

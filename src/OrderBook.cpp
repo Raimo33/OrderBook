@@ -14,7 +14,7 @@ last edited: 2025-03-08 21:24:05
 #include "OrderBook.hpp"
 #include "macros.hpp"
 
-extern std::atomic<bool> error;
+extern volatile bool error;
 
 OrderBook::OrderBook(void) :
   price_arrays{
