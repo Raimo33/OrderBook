@@ -1,15 +1,9 @@
-#include <chrono>
 #include <csignal>
 #include <stdexcept>
-#include <unordered_map>
-#include <unistd.h>
-#include <sys/timerfd.h>
 #include <immintrin.h>
 
 #include "ErrorHandler.hpp"
 #include "macros.hpp"
-
-using namespace std::chrono_literals;
 
 extern volatile bool error;
 
