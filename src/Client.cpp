@@ -11,7 +11,6 @@ last edited: 2025-03-08 21:24:05
 
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
-#include <unordered_map>
 #include <array>
 #include <byteswap.h>
 #include <unistd.h>
@@ -67,6 +66,7 @@ COLD int Client::createTcpSocket(void) const noexcept
   error |= (sock_fd == -1);
 
   constexpr int enable = 1;
+
   error |= (setsockopt(sock_fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable)) == -1);
   error |= (setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)) == -1);
   error |= (setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1);

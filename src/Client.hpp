@@ -8,7 +8,6 @@
 #include <chrono>
 
 #include "Config.hpp"
-#include "ErrorHandler.hpp"
 #include "OrderBook.hpp"
 #include "Packets.hpp"
 
