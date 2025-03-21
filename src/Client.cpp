@@ -21,8 +21,6 @@ last edited: 2025-03-08 21:24:05
 #include "Config.hpp"
 #include "macros.hpp"
 
-using namespace std::chrono_literals;
-
 extern volatile bool error;
 
 Client::Client(void) :
@@ -292,7 +290,15 @@ HOT void Client::processMessageBlocks(const char *buffer, uint16_t blocks_count)
     std::array<MessageHandler, 256> handlers{};
     handlers['A'] = &Client::handleNewOrder;
     handlers['D'] = &Client::handleDeletedOrder;
-    //TODO add all the other handlers (they must be here otherwise UB)
+    handlers['T'] = &Client::handleSeconds;
+    handlers['R'] = &Client::handleSeriesInfoBasic;
+    handlers['M'] = &Client::handleSeriesInfoBasicCombination;
+    handlers['L'] = &Client::handleTickSizeData;
+    handlers['S'] = &Client::handleSystemEvent;
+    handlers['O'] = &Client::handleTradingStatus;
+    handlers['E'] = &Client::handleExecutionNotice;
+    handlers['C'] = &Client::handleExecutionNoticeWithTradeInfo;
+    handlers['Z'] = &Client::handleEquilibriumPrice;
     return handlers;
   }();
 
@@ -333,4 +339,49 @@ HOT void Client::handleDeletedOrder(const MessageBlock &block)
   // const uint64_t volume = bswap_32(deleted_order.quantity);
 
   // order_book.removeOrder(side, price, volume);
+}
+
+HOT void Client::handleSeconds(const MessageBlock &block)
+{
+  (void)block;
+}
+
+COLD void Client::handleSeriesInfoBasic(const MessageBlock &block)
+{
+  (void)block;
+}
+
+COLD void Client::handleSeriesInfoBasicCombination(const MessageBlock &block)
+{
+  (void)block;
+}
+
+COLD void Client::handleTickSizeData(const MessageBlock &block)
+{
+  (void)block;
+}
+
+COLD void Client::handleSystemEvent(const MessageBlock &block)
+{
+  (void)block;
+}
+
+COLD void Client::handleTradingStatus(const MessageBlock &block)
+{
+  (void)block;
+}
+
+HOT void Client::handleExecutionNotice(const MessageBlock &block)
+{
+  (void)block;
+}
+
+HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
+{
+  (void)block;
+}
+
+COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
+{
+  (void)block;
 }

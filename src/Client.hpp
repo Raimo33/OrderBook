@@ -39,6 +39,15 @@ class Client
 
     void handleNewOrder(const MessageBlock &block);
     void handleDeletedOrder(const MessageBlock &block);
+    void handleSeconds(const MessageBlock &block);
+    void handleSeriesInfoBasic(const MessageBlock &block);
+    void handleSeriesInfoBasicCombination(const MessageBlock &block);
+    void handleTickSizeData(const MessageBlock &block);
+    void handleSystemEvent(const MessageBlock &block);
+    void handleTradingStatus(const MessageBlock &block);
+    void handleExecutionNotice(const MessageBlock &block);
+    void handleExecutionNoticeWithTradeInfo(const MessageBlock &block);
+    void handleEquilibriumPrice(const MessageBlock &block);
 
     Config config;
     OrderBook order_book;
