@@ -38,8 +38,8 @@ Client::Client(void) :
   const sockaddr_in bind_address_tcp = createAddress(config.bind_ip, config.bind_port_tcp);
   const sockaddr_in bind_address_udp = createAddress(config.bind_ip, config.bind_port_udp);
 
-  error |= (bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp) == -1));
-  error |= (bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp) == -1));
+  error |= (bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp)) == -1);
+  error |= (bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp)) == -1);
 
   ip_mreq mreq{};
   mreq.imr_interface.s_addr = bind_address_udp.sin_addr.s_addr;
@@ -69,9 +69,9 @@ COLD int Client::createTcpSocket(void) const noexcept
   error |= (sock_fd == -1);
 
   constexpr int enable = 1;
-  error |= (setsockopt(sock_fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable) == -1));
-  error |= (setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable) == -1));
-  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable) == -1));
+  error |= (setsockopt(sock_fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable)) == -1);
+  error |= (setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)) == -1);
+  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1);
 
   return sock_fd;
 }
@@ -85,10 +85,10 @@ COLD int Client::createUdpSocket(void) const noexcept
   constexpr int disable = 0;
   constexpr int priority = 255;
 
-  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable) == -1));
-  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority) == -1));
-  error |= (setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &disable, sizeof(disable) == -1));
-  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_BUSY_POLL, &enable, sizeof(enable) == -1));
+  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1);
+  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) == -1);
+  error |= (setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &disable, sizeof(disable)) == -1);
+  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_BUSY_POLL, &enable, sizeof(enable)) == -1);
   //TODO SO_RCVBUF (not < than MTU)
   //TODO SO_BINDTODEVICE
   //TODO IP_MULTICAST_IF
@@ -137,14 +137,11 @@ HOT void Client::updateOrderbook(void)
     iov[i][0] = { &headers[i], sizeof(headers[i]) };
     iov[i][1] = { payloads[i], sizeof(payloads[i]) };
 
-    packets[i].msg_hdr = {
-      .msg_name = (void*)&multicast_address,
-      .msg_namelen = sizeof(multicast_address),
-      .msg_iov = iov[i],
-      .msg_iovlen = 2,
-      .msg_control = nullptr,
-      .msg_controllen = 0
-    };
+    msghdr &packet = packets[i].msg_hdr;
+    packet.msg_name = (void*)&multicast_address;
+    packet.msg_namelen = sizeof(multicast_address);
+    packet.msg_iov = iov[i];
+    packet.msg_iovlen = 2;
   }
 
   while (true)
