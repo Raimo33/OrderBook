@@ -13,8 +13,9 @@ last edited: 2025-03-08 21:24:05
 
 #include "Client.hpp"
 #include "Config.hpp"
+#include "error.h"
 
-extern volatile bool error;
+volatile bool error = false;
 
 //TODO disaster recovery
 //TODO glimpse
@@ -24,8 +25,6 @@ void init_signal_handler(void);
 
 int main(void)
 {
-  error = false;
-
   init_signal_handler();
 
   Client client;
@@ -35,10 +34,13 @@ int main(void)
 void init_signal_handler(void)
 {
   struct sigaction sa{};
-  sa.sa_handler = [](int) { error = true; };
+
+  sa.sa_handler = [](int) { panic(); };
 
   error |= (sigaction(SIGINT, &sa, nullptr) == -1);
   error |= (sigaction(SIGTERM, &sa, nullptr) == -1);
   error |= (sigaction(SIGQUIT, &sa, nullptr) == -1);
   error |= (sigaction(SIGPIPE, &sa, nullptr) == -1);
+
+  CHECK_ERROR;
 }

@@ -19,8 +19,7 @@ last edited: 2025-03-08 21:24:05
 #include "Client.hpp"
 #include "Config.hpp"
 #include "macros.hpp"
-
-extern volatile bool error;
+#include "error.h"
 
 Client::Client(void) :
   config(),
@@ -44,6 +43,8 @@ Client::Client(void) :
 
   error |= (setsockopt(udp_sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1);
   error |= (connect(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address)) == -1);
+
+  CHECK_ERROR;
 }
 
 COLD sockaddr_in Client::createAddress(const std::string_view ip_str, const std::string_view port_str) const noexcept
@@ -71,6 +72,8 @@ COLD int Client::createTcpSocket(void) const noexcept
   error |= (setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)) == -1);
   error |= (setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1);
 
+  CHECK_ERROR;
+
   return sock_fd;
 }
 
@@ -91,6 +94,8 @@ COLD int Client::createUdpSocket(void) const noexcept
   //TODO SO_BINDTODEVICE
   //TODO IP_MULTICAST_IF
   //TODO SO_BUSY_POLL_BUDGET
+
+  CHECK_ERROR;
 
   return sock_fd;
 }
@@ -159,6 +164,7 @@ HOT void Client::updateOrderbook(void)
       const uint16_t message_count = bswap_16(header_ptr->message_count);
 
       error |= (sequence_number != this->sequence_number);
+      CHECK_ERROR;
 
       processMessageBlocks(payload_ptr, message_count);
 
@@ -184,6 +190,7 @@ COLD bool Client::sendLogin(void)
 
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type) + sizeof(login);
   error |= (send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size, 0) == -1);
+  CHECK_ERROR;
 
   return true;
 }
@@ -194,6 +201,7 @@ COLD bool Client::recvLogin(void)
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
   error |= (recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size, 0) == -1);
+  CHECK_ERROR;
 
   switch (packet.type)
   {
@@ -217,6 +225,7 @@ bool Client::recvSnapshot(void)
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
   error |= (recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size, 0) == -1);
+  CHECK_ERROR;
 
   switch (packet.type)
   {
@@ -244,6 +253,7 @@ COLD bool Client::sendLogout(void)
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type);
 
   error |= (send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size, 0) == -1);
+  CHECK_ERROR;
 
   return true;
 }
@@ -270,6 +280,7 @@ bool Client::processMessageBlocks(const std::vector<char> &buffer)
       {
         const uint64_t sequence_number = std::stoull(block->snapshot_completion.sequence);
         error |= (sequence_number != ++this->sequence_number);
+        CHECK_ERROR;
         return true;
       }
     }

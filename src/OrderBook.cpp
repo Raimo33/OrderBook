@@ -13,6 +13,7 @@ last edited: 2025-03-08 21:24:05
 
 #include "OrderBook.hpp"
 #include "macros.hpp"
+#include "error.h"
 
 extern volatile bool error;
 
@@ -68,6 +69,7 @@ HOT inline void OrderBook::removeOrder(const Side side, const uint32_t price, co
 
   error |= (price_it == prices.end());
   error |= (value < volume);
+  CHECK_ERROR;
 
   value -= volume;
   if (UNLIKELY(value == 0))
