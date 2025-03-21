@@ -19,11 +19,11 @@ extern volatile bool error;
 OrderBook::OrderBook(void) :
   price_arrays{
     std::vector<uint32_t>(1, 0),
-    std::vector<uint32_t>(1, 0)
+    std::vector<uint32_t>(1, UINT32_MAX)
   },
   volume_arrays{
     std::vector<uint64_t>(1, 0),
-    std::vector<uint64_t>(1, 0)
+    std::vector<uint64_t>(1, UINT64_MAX)
   }
 {}
 
