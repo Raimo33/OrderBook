@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-22 14:14:57                                                
+last edited: 2025-03-22 22:23:11                                                
 
 ================================================================================*/
 
@@ -157,8 +157,8 @@ HOT void Client::updateOrderbook(void)
 
     while (packets_count--)
     {
-      __builtin_prefetch(header_ptr + 1, 0, 0);
-      __builtin_prefetch(payload_ptr + MAX_MSG_SIZE, 0, 0);
+      PREFETCH_R(header_ptr + 1, 2);
+      PREFETCH_R(payload_ptr + MAX_MSG_SIZE, 2);
 
       const uint64_t sequence_number = bswap_64(header_ptr->sequence_number);
       const uint16_t message_count = bswap_16(header_ptr->message_count);
@@ -318,7 +318,7 @@ HOT void Client::processMessageBlocks(const char *buffer, uint16_t blocks_count)
     const MessageBlock *block = reinterpret_cast<const MessageBlock *>(buffer);
     const uint16_t block_length = bswap_16(block->length);
 
-    __builtin_prefetch(buffer + block_length, 0, 0);
+    PREFETCH_R(buffer + block_length, 3);
 
     (this->*handlers[block->type])(*block);
 
