@@ -79,7 +79,7 @@ HOT inline void OrderBook::removeOrder(const Side side, const uint32_t price, co
   }
 }
 
-HOT inline void OrderBook::executeOrder(const Side side, uint64_t volume)
+HOT inline void OrderBook::executeOrder(const Side side, UNUSED const uint32_t price, uint64_t volume)
 {
   const Side other_side = static_cast<Side>(side ^ 1);
   auto& volumes = volume_arrays[other_side];

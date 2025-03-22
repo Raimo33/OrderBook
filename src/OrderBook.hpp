@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "macros.hpp"
+
 class OrderBook
 {
   public:
@@ -15,7 +17,7 @@ class OrderBook
 
     void addOrder(const Side side, const uint32_t price, const uint64_t volume);
     void removeOrder(const Side side, const uint32_t price, const uint64_t volume);
-    void executeOrder(const Side side, uint64_t volume);
+    void executeOrder(const Side side, UNUSED const uint32_t price, const uint64_t volume);
 
   private:
 

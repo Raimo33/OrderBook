@@ -334,10 +334,14 @@ HOT void Client::handleNewOrder(const MessageBlock &block)
   const int32_t price = bswap_32(new_order.price);
   const uint64_t volume = bswap_32(new_order.quantity);
 
-  if (price == INT32_MIN)
-    order_book.executeOrder(side, volume);
-  else
-    order_book.addOrder(side, price, volume);
+  using OrderHandler = void (OrderBook::*)(const OrderBook::Side, const uint32_t, const uint64_t);
+  alignas(64) constexpr std::array<OrderHandler, 2> handlers = {
+    &OrderBook::addOrder,
+    &OrderBook::removeOrder
+  }; 
+
+  const uint8_t idx = (price == INT32_MIN);
+  (order_book.*handlers[idx])(side, price, volume);
 }
 
 //TODO find a way to efficiently remove orders, and sanitize them before calling the orderbook
