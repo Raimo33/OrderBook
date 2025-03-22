@@ -1,5 +1,16 @@
+/*================================================================================
+
+File: Config.cpp                                                                
+Creator: Claudio Raimondi                                                       
+Email: claudio.raimondi@pm.me                                                   
+
+created at: 2025-03-22 11:22:28                                                 
+last edited: 2025-03-22 11:22:28                                                
+
+================================================================================*/
+
 #include "Config.hpp"
-#include "error.h"
+#include "error.hpp"
 
 static std::string safe_getenv(const char* var);
 

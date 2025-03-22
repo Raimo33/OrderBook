@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-03-08 21:24:05                                                
+last edited: 2025-03-22 11:22:28                                                
 
 ================================================================================*/
 
@@ -13,7 +13,7 @@ last edited: 2025-03-08 21:24:05
 
 #include "Client.hpp"
 #include "Config.hpp"
-#include "error.h"
+#include "error.hpp"
 
 volatile bool error = false;
 

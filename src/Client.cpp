@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-08 21:24:05                                                
+last edited: 2025-03-22 11:22:28                                                
 
 ================================================================================*/
 
@@ -19,7 +19,7 @@ last edited: 2025-03-08 21:24:05
 #include "Client.hpp"
 #include "Config.hpp"
 #include "macros.hpp"
-#include "error.h"
+#include "error.hpp"
 
 Client::Client(void) :
   config(),
@@ -130,10 +130,10 @@ HOT void Client::updateOrderbook(void)
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
   //+1 added for safe prefetching past the last packet 
-  alignas(64) mmsghdr packets[MAX_PACKETS + 1];
-  alignas(64) iovec iov[MAX_PACKETS + 1][2];
-  alignas(64) MoldUDP64Header headers[MAX_PACKETS + 1];
-  alignas(64) char payloads[MAX_PACKETS + 1][MAX_MSG_SIZE];
+  alignas(64) mmsghdr packets[MAX_PACKETS+1];
+  alignas(64) iovec iov[MAX_PACKETS+1][2];
+  alignas(64) MoldUDP64Header headers[MAX_PACKETS+1];
+  alignas(64) char payloads[MAX_PACKETS+1][MAX_MSG_SIZE];
 
   for (uint8_t i = 0; i < MAX_PACKETS; ++i)
   {
@@ -296,7 +296,7 @@ HOT void Client::processMessageBlocks(const char *buffer, uint16_t blocks_count)
 {
   using MessageHandler = void (Client::*)(const MessageBlock &);
   
-  alignas(64) constexpr std::array<MessageHandler, 256> handlers = []()
+    constexpr std::array<MessageHandler, 256> handlers = []()
   {
     std::array<MessageHandler, 256> handlers{};
     handlers['A'] = &Client::handleNewOrder;

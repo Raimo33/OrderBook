@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-08 21:24:05                                                
+last edited: 2025-03-22 11:22:28                                                
 
 ================================================================================*/
 
@@ -13,7 +13,7 @@ last edited: 2025-03-08 21:24:05
 
 #include "OrderBook.hpp"
 #include "macros.hpp"
-#include "error.h"
+#include "error.hpp"
 
 extern volatile bool error;
 
@@ -41,8 +41,8 @@ HOT inline void OrderBook::addOrder(const Side side, const uint32_t price, const
   std::vector<uint64_t> &volumes = volume_arrays[side];
 
   constexpr bool (*comparators[])(uint32_t, uint32_t) = {
-    [](uint32_t a, uint32_t b) -> bool { return a < b; },
-    [](uint32_t a, uint32_t b) -> bool { return a > b; }
+    [](uint32_t a, uint32_t b) { return a < b; },
+    [](uint32_t a, uint32_t b) { return a > b; }
   };
 
   auto price_it = findPrice(prices, price, comparators[side]);

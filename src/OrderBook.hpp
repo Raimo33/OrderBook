@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "AlignedAllocator.hpp"
 #include "macros.hpp"
 
 class OrderBook
@@ -24,7 +25,6 @@ class OrderBook
     template <typename Compare>
     std::vector<uint32_t>::const_iterator findPrice(const std::vector<uint32_t> &prices, const uint32_t price, Compare comp) const;
 
-    std::vector<uint32_t> price_arrays[2];
-    std::vector<uint64_t> volume_arrays[2];
-
+    std::array<std::vector<uint32_t, AlignedAllocator<uint32_t>>, 2> price_arrays;
+    std::array<std::vector<uint64_t, AlignedAllocator<uint64_t>>, 2> volume_arrays;
 };
