@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-22 11:22:28                                                
+last edited: 2025-03-22 14:14:57                                                
 
 ================================================================================*/
 
@@ -21,7 +21,7 @@ last edited: 2025-03-22 11:22:28
 #include "macros.hpp"
 #include "error.hpp"
 
-Client::Client(void) :
+COLD Client::Client(void) :
   config(),
   order_book(),
   glimpse_address(createAddress(config.glimpse_ip, config.glimpse_port)),

@@ -1,9 +1,20 @@
+/*================================================================================
+
+File: OrderBook.hpp                                                             
+Creator: Claudio Raimondi                                                       
+Email: claudio.raimondi@pm.me                                                   
+
+created at: 2025-03-22 14:14:57                                                 
+last edited: 2025-03-22 14:14:57                                                
+
+================================================================================*/
+
 #pragma once
 
 #include <cstdint>
+#include <array>
 #include <vector>
 
-#include "AlignedAllocator.hpp"
 #include "macros.hpp"
 
 class OrderBook
@@ -25,6 +36,6 @@ class OrderBook
     template <typename Compare>
     std::vector<uint32_t>::const_iterator findPrice(const std::vector<uint32_t> &prices, const uint32_t price, Compare comp) const;
 
-    std::array<std::vector<uint32_t, AlignedAllocator<uint32_t>>, 2> price_arrays;
-    std::array<std::vector<uint64_t, AlignedAllocator<uint64_t>>, 2> volume_arrays;
+    std::array<std::vector<uint32_t>, 2> price_arrays;
+    std::array<std::vector<uint64_t>, 2> volume_arrays;
 };

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-22 11:22:28                                                
+last edited: 2025-03-22 14:14:57                                                
 
 ================================================================================*/
 
@@ -17,18 +17,20 @@ last edited: 2025-03-22 11:22:28
 
 extern volatile bool error;
 
-OrderBook::OrderBook(void) :
-  price_arrays{
-    std::vector<uint32_t>(1, 0),
-    std::vector<uint32_t>(1, UINT32_MAX)
-  },
-  volume_arrays{
-    std::vector<uint64_t>(1, 0),
-    std::vector<uint64_t>(1, UINT64_MAX)
-  }
-{}
+COLD OrderBook::OrderBook(void)
+{
+  for (auto &prices : price_arrays)
+    prices.reserve(1024);
+  for (auto &volumes : volume_arrays)
+    volumes.reserve(1024);
 
-OrderBook::~OrderBook(void) {}
+  price_arrays[BID].push_back(0);
+  price_arrays[ASK].push_back(UINT32_MAX);
+  volume_arrays[BID].push_back(0);
+  volume_arrays[ASK].push_back(UINT64_MAX);
+}
+
+COLD OrderBook::~OrderBook(void) {}
 
 HOT inline std::pair<uint32_t, uint32_t> OrderBook::getBestPrices(void) const
 {
