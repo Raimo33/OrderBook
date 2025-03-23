@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-23 17:58:46                                                
+last edited: 2025-03-23 22:29:52                                                
 
 ================================================================================*/
 
@@ -164,13 +164,13 @@ HOT void Client::updateOrderbook(void)
       const uint16_t message_count = bswap_16(header_ptr->message_count);
 
       error |= (sequence_number != this->sequence_number);
-      CHECK_ERROR;
-
       processMessageBlocks(payload_ptr, message_count);
 
       header_ptr++;
       payload_ptr += MAX_MSG_SIZE;
     }
+
+    CHECK_ERROR;
   }
 }
 
@@ -266,20 +266,20 @@ bool Client::processMessageBlocks(const std::vector<char> &buffer)
 
   while (it != end)
   {
-    const MessageBlock *block = reinterpret_cast<const MessageBlock *>(&*it);
-    const uint16_t block_length = bswap_16(block->length);
+    const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(&*it);
+    const uint16_t block_length = bswap_16(block.length);
 
-    switch (block->type)
+    switch (block.type)
     {
       case 'A':
-        handleNewOrder(*block);
+        handleNewOrder(block);
         break;
       case 'D':
-        handleDeletedOrder(*block);
+        handleDeletedOrder(block);
         break;
       case 'G':
       {
-        const uint64_t sequence_number = std::stoull(block->snapshot_completion.sequence);
+        const uint64_t sequence_number = std::stoull(block.snapshot_completion.sequence);
         error |= (sequence_number != ++this->sequence_number);
         CHECK_ERROR;
         return true;
@@ -296,8 +296,8 @@ bool Client::processMessageBlocks(const std::vector<char> &buffer)
 HOT void Client::processMessageBlocks(const char *buffer, uint16_t blocks_count)
 {
   using MessageHandler = void (Client::*)(const MessageBlock &);
-  
-    constexpr std::array<MessageHandler, 256> handlers = []()
+
+  constexpr std::array<MessageHandler, 256> handlers = []()
   {
     std::array<MessageHandler, 256> handlers{};
     handlers['A'] = &Client::handleNewOrder;

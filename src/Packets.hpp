@@ -1,3 +1,14 @@
+/*================================================================================
+
+File: Packets.hpp                                                               
+Creator: Claudio Raimondi                                                       
+Email: claudio.raimondi@pm.me                                                   
+
+created at: 2025-03-23 22:29:52                                                 
+last edited: 2025-03-23 22:29:52                                                
+
+================================================================================*/
+
 #pragma once
 
 #include <cstdint>
@@ -18,18 +29,18 @@ struct SoupBinTCPPacket
       char requested_session[10];
       char requested_sequence[20];
     } login_request;
-  
+
     struct
     {
       char session[10];
       char sequence[20];
     } login_acceptance;
-  
+
     struct
     {
       char reject_reason_code;
     } login_reject;
-  
+
     struct {} sequenced_data;
     struct {} server_heartbeat;
     struct {} client_heartbeat;
@@ -60,7 +71,7 @@ struct MessageBlock
     {
       uint32_t second;
     } seconds;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
@@ -83,7 +94,7 @@ struct MessageBlock
       uint16_t number_of_decimals_in_strike_price;
       uint8_t put_or_call;
     } series_info_basic;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
@@ -92,7 +103,7 @@ struct MessageBlock
       char leg_slide;
       int32_t leg_ratio;
     } series_info_basic_combination;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
@@ -101,20 +112,20 @@ struct MessageBlock
       uint32_t price_from;
       uint32_t price_to;
     } tick_size_data;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
       char event_code;
     } system_event_data;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
       uint32_t orderbook_id;
       char state_name[20];
     } trading_status_data;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
@@ -127,7 +138,7 @@ struct MessageBlock
       uint16_t order_attributes;
       uint8_t lot_type;
     } new_order;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
@@ -140,7 +151,7 @@ struct MessageBlock
       char reserved1[7];
       char reserved2[7];
     } execution_notice;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
@@ -156,7 +167,7 @@ struct MessageBlock
       char occurred_cross;
       char printable;
     } execution_notice_with_trade_info;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
@@ -164,7 +175,7 @@ struct MessageBlock
       uint32_t orderbook_id;
       char side;
     } deleted_order;
-  
+
     struct
     {
       uint32_t timestamp_nanoseconds;
