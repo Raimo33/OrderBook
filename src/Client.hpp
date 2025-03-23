@@ -1,3 +1,14 @@
+/*================================================================================
+
+File: Client.hpp                                                                
+Creator: Claudio Raimondi                                                       
+Email: claudio.raimondi@pm.me                                                   
+
+created at: 2025-03-23 17:58:46                                                 
+last edited: 2025-03-23 17:58:46                                                
+
+================================================================================*/
+
 #pragma once
 
 #include <cstdint>
@@ -22,8 +33,8 @@ class Client
   private:
 
     sockaddr_in createAddress(const std::string_view ip, const std::string_view port) const noexcept;
-    int createTcpSocket(void) const;
-    int createUdpSocket(void) const;
+    int createTcpSocket(void) const noexcept;
+    int createUdpSocket(void) const noexcept;
 
     void fetchOrderbook(void);
     void updateOrderbook(void);

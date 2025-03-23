@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-22 22:23:11                                                
+last edited: 2025-03-23 17:58:46                                                
 
 ================================================================================*/
 
@@ -189,7 +189,7 @@ COLD bool Client::sendLogin(void)
   login.requested_sequence[0] = '1';
 
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type) + sizeof(login);
-  error |= (send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size, 0) == -1);
+  error |= (send(tcp_sock_fd, &packet, packet_size, 0) == -1);
   CHECK_ERROR;
 
   return true;
@@ -197,10 +197,10 @@ COLD bool Client::sendLogin(void)
 
 COLD bool Client::recvLogin(void)
 {
-  SoupBinTCPPacket packet;
+  SoupBinTCPPacket packet{};
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
-  error |= (recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size, 0) == -1);
+  error |= (recv(tcp_sock_fd, &packet, header_size, 0) == -1);
   CHECK_ERROR;
 
   switch (packet.type)
@@ -209,19 +209,19 @@ COLD bool Client::recvLogin(void)
       return recvLogin();
     case 'A':
     {
-      const uint16_t payload_size = bswap_32(packet.length) - sizeof(packet.type);
-      error |= (recv(tcp_sock_fd, reinterpret_cast<char *>(&packet.login_acceptance), payload_size, 0) == -1);
+      error |= (recv(tcp_sock_fd, &packet.login_acceptance, sizeof(packet.login_acceptance), 0) == -1);
+      CHECK_ERROR;
       sequence_number = std::stoull(packet.login_acceptance.sequence);
       return true;
     }
     default:
-      error = true;
+      panic();
   }
 }
 
 bool Client::recvSnapshot(void)
 {
-  SoupBinTCPPacket packet;
+  SoupBinTCPPacket packet{};
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
   error |= (recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size, 0) == -1);
@@ -236,10 +236,11 @@ bool Client::recvSnapshot(void)
       const uint16_t payload_size = bswap_32(packet.length) - sizeof(packet.type);
       std::vector<char> buffer(payload_size);
       error |= (recv(tcp_sock_fd, buffer.data(), payload_size, 0) == -1);
+      CHECK_ERROR;
       return processMessageBlocks(buffer);
     }
     default:
-      error = true;
+      panic();
   }
 }
 

@@ -5,11 +5,9 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-22 14:14:57                                                
+last edited: 2025-03-23 17:58:46                                                
 
 ================================================================================*/
-
-#include <algorithm>
 
 #include "OrderBook.hpp"
 #include "macros.hpp"
@@ -32,19 +30,14 @@ COLD OrderBook::OrderBook(void)
 
 COLD OrderBook::~OrderBook(void) {}
 
-HOT inline std::pair<uint32_t, uint32_t> OrderBook::getBestPrices(void) const
-{
-  return std::make_pair(price_arrays[BID].back(), price_arrays[ASK].back());
-}
-
-HOT inline void OrderBook::addOrder(const Side side, const uint32_t price, const uint64_t volume)
+HOT void OrderBook::addOrder(const Side side, const uint32_t price, const uint64_t volume)
 {
   std::vector<uint32_t> &prices = price_arrays[side];
   std::vector<uint64_t> &volumes = volume_arrays[side];
 
-  constexpr bool (*comparators[])(uint32_t, uint32_t) = {
-    [](uint32_t a, uint32_t b) { return a < b; },
-    [](uint32_t a, uint32_t b) { return a > b; }
+  constexpr bool (*comparators[])(const uint32_t, const uint32_t) = {
+    [](const uint32_t a, const uint32_t b) { return a < b; },
+    [](const uint32_t a, const uint32_t b) { return a > b; }
   };
 
   auto price_it = findPrice(prices, price, comparators[side]);
@@ -59,7 +52,7 @@ HOT inline void OrderBook::addOrder(const Side side, const uint32_t price, const
   }
 }
 
-HOT inline void OrderBook::removeOrder(const Side side, const uint32_t price, const uint64_t volume)
+HOT void OrderBook::removeOrder(const Side side, const uint32_t price, const uint64_t volume)
 {
   std::vector<uint32_t> &prices = price_arrays[side];
   std::vector<uint64_t> &volumes = volume_arrays[side];
@@ -81,7 +74,7 @@ HOT inline void OrderBook::removeOrder(const Side side, const uint32_t price, co
   }
 }
 
-HOT inline void OrderBook::executeOrder(const Side side, UNUSED const uint32_t price, uint64_t volume)
+HOT void OrderBook::executeOrder(const Side side, UNUSED const uint32_t price, uint64_t volume)
 {
   const Side other_side = static_cast<Side>(side ^ 1);
   auto& volumes = volume_arrays[other_side];
@@ -89,7 +82,7 @@ HOT inline void OrderBook::executeOrder(const Side side, UNUSED const uint32_t p
 
   while (volume & size)
   {
-    uint64_t& available = volumes[size - 1];
+    uint64_t &available = volumes[size - 1];
     const uint64_t traded = std::min(available, volume);
 
     available -= traded;
