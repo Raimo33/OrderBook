@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-23 22:29:52                                                
+last edited: 2025-03-24 22:03:35                                                
 
 ================================================================================*/
 
@@ -172,6 +172,7 @@ HOT void Client::updateOrderbook(void)
 
     CHECK_ERROR;
   }
+  UNREACHABLE;
 }
 
 COLD bool Client::sendLogin(void)

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-23 17:58:46                                                
+last edited: 2025-03-24 22:03:35                                                
 
 ================================================================================*/
 
@@ -99,7 +99,7 @@ HOT std::vector<uint32_t>::const_iterator OrderBook::findPrice(const std::vector
   auto it = prices.crbegin();
   auto end = prices.crend();
 
-  //TODO SIMD (backwards)
+  //TOOD find a way to parallelize, SIMD. very hot function
   while (it != end && comp(*it, price))
     ++it;
 
