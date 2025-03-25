@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-24 22:03:35                                                
+last edited: 2025-03-25 13:49:01                                                
 
 ================================================================================*/
 
@@ -117,7 +117,7 @@ COLD void Client::fetchOrderbook(void)
   sendLogin();
   recvLogin();
 
-  while (recvSnapshot() == false)
+  while (!recvSnapshot())
     continue;
 
   sendLogout();
@@ -157,8 +157,8 @@ HOT void Client::updateOrderbook(void)
 
     while (packets_count--)
     {
-      PREFETCH_R(header_ptr + 1, 2);
-      PREFETCH_R(payload_ptr + MAX_MSG_SIZE, 2);
+      PREFETCH_R(header_ptr + 1, 1);
+      PREFETCH_R(payload_ptr + MAX_MSG_SIZE, 1);
 
       const uint64_t sequence_number = bswap_64(header_ptr->sequence_number);
       const uint16_t message_count = bswap_16(header_ptr->message_count);
