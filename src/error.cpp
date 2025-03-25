@@ -15,5 +15,9 @@ last edited: 2025-03-23 17:58:46
 
 [[noreturn]] COLD NEVER_INLINE void panic(void)
 {
-  throw std::runtime_error("Error occured, shit your pants");
+  #ifdef __EXCEPTIONS
+    throw std::runtime_error("Error occured, shit your pants");
+  #else
+    std::terminate();
+  #endif
 }

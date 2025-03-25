@@ -27,9 +27,9 @@ CXXFLAGS += -fshrink-wrap -fshrink-wrap-separate
 CXXFLAGS += -fipa-profile -fipa-modref -fipa-pure-const -fipa-strict-aliasing -fipa-reference -fipa-reference-addressable -fipa-vrp -fipa-cp -fipa-bit-cp -fipa-icf -fipa-sra -fipa-ra -fipa-pta -fipa-cp-clone
 CXXFLAGS += -fpeephole2 -flra-remat -fallow-store-data-races -fstore-merging -fthread-jumps -fpredictive-commoning -fsplit-paths
 CXXFLAGS += -freorder-blocks -freorder-blocks-algorithm=stc -freorder-blocks-and-partition -freorder-functions -fcode-hoisting -fhoist-adjacent-loads -fira-hoist-pressure
-CXXFLAGS += -fcaller-saves -fdefer-pop -fdelayed-branch -fguess-branch-probability
+CXXFLAGS += -fcaller-saves -fdefer-pop -fguess-branch-probability
 CXXFLAGS += -falign-functions -falign-jumps -falign-labels -falign-loops
-CXXFLAGS += -fno-plt -fuse-linker-plugin -fsection-anchors -flto
+CXXFLAGS += -fno-plt -fuse-linker-plugin -flto
 
 LDFLAGS = -static -static-libgcc -static-libstdc++
 
