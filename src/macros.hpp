@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-03-22 22:23:11                                                
+last edited: 2025-03-25 19:45:42                                                
 
 ================================================================================*/
 
@@ -21,3 +21,4 @@ last edited: 2025-03-22 22:23:11
 #define UNUSED                    __attribute__((unused))
 #define PREFETCH_R(x, priority)   __builtin_prefetch(x, 0, priority)
 #define PREFETCH_W(x, priority)   __builtin_prefetch(x, 1, priority)
+#define restrict                  __restrict__

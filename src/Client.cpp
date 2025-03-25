@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-25 13:49:01                                                
+last edited: 2025-03-25 19:45:42                                                
 
 ================================================================================*/
 
@@ -294,7 +294,7 @@ bool Client::processMessageBlocks(const std::vector<char> &buffer)
   return false;
 }
 
-HOT void Client::processMessageBlocks(const char *buffer, uint16_t blocks_count)
+HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t blocks_count)
 {
   using MessageHandler = void (Client::*)(const MessageBlock &);
 
