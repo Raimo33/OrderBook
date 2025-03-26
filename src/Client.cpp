@@ -141,8 +141,6 @@ HOT void Client::updateOrderbook(void)
     iov[i][1] = { payloads[i], sizeof(payloads[i]) };
 
     msghdr &packet = packets[i].msg_hdr;
-    packet.msg_name = (void*)&multicast_address;
-    packet.msg_namelen = sizeof(multicast_address);
     packet.msg_iov = iov[i];
     packet.msg_iovlen = 2;
   }
