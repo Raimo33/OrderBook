@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 11:22:28                                                 
-last edited: 2025-03-22 11:22:28                                                
+last edited: 2025-03-27 19:08:48                                                
 
 ================================================================================*/
 
@@ -16,8 +16,6 @@ static std::string safe_getenv(const char* var);
 
 Config::Config(void) :
   bind_ip(safe_getenv("BIND_IP")),
-  bind_port_udp(safe_getenv("BIND_PORT_UDP")),
-  bind_port_tcp(safe_getenv("BIND_PORT_TCP")),
   multicast_ip(safe_getenv("MULTICAST_IP")),
   multicast_port(safe_getenv("MULTICAST_PORT")),
   glimpse_ip(safe_getenv("GLIMPSE_IP")),

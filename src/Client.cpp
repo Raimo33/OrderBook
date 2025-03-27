@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-25 19:45:42                                                
+last edited: 2025-03-27 19:08:48                                                
 
 ================================================================================*/
 
@@ -31,8 +31,8 @@ COLD Client::Client(void) :
   udp_sock_fd(createUdpSocket()),
   sequence_number(0)
 {
-  const sockaddr_in bind_address_tcp = createAddress(config.bind_ip, config.bind_port_tcp);
-  const sockaddr_in bind_address_udp = createAddress(config.bind_ip, config.bind_port_udp);
+  const sockaddr_in bind_address_tcp = createAddress(config.bind_ip, "0");
+  const sockaddr_in bind_address_udp = createAddress(config.bind_ip, config.multicast_port);
 
   error |= (bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp)) == -1);
   error |= (bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp)) == -1);
@@ -125,7 +125,7 @@ COLD void Client::fetchOrderbook(void)
 
 HOT void Client::updateOrderbook(void)
 {
-  constexpr uint8_t MAX_PACKETS = 64;
+  constexpr uint8_t MAX_PACKETS = 16;
   constexpr uint16_t MTU = 1500;
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
@@ -140,11 +140,9 @@ HOT void Client::updateOrderbook(void)
     iov[i][0] = { &headers[i], sizeof(headers[i]) };
     iov[i][1] = { payloads[i], sizeof(payloads[i]) };
 
-    msghdr &packet = packets[i].msg_hdr;
-    packet.msg_name = (void*)&multicast_address;
-    packet.msg_namelen = sizeof(multicast_address);
-    packet.msg_iov = iov[i];
-    packet.msg_iovlen = 2;
+    msghdr &msg_hdr = packets[i].msg_hdr;
+    msg_hdr.msg_iov = iov[i];
+    msg_hdr.msg_iovlen = 2;
   }
 
   while (true)
@@ -298,9 +296,10 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
 {
   using MessageHandler = void (Client::*)(const MessageBlock &);
 
-  constexpr std::array<MessageHandler, 256> handlers = []()
+  constexpr uint8_t size = 'Z' + 1;
+  constexpr std::array<MessageHandler, size> handlers = []()
   {
-    std::array<MessageHandler, 256> handlers{};
+    std::array<MessageHandler, size> handlers{};
     handlers['A'] = &Client::handleNewOrder;
     handlers['D'] = &Client::handleDeletedOrder;
     handlers['T'] = &Client::handleSeconds;
@@ -317,15 +316,15 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
 
   while (blocks_count--)
   {
-    const MessageBlock *block = reinterpret_cast<const MessageBlock *>(buffer);
-    const uint16_t block_length = bswap_16(block->length);
+    const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(buffer);
+    const uint16_t block_length = bswap_16(block.length);
 
     PREFETCH_R(buffer + block_length, 3);
 
-    (this->*handlers[block->type])(*block);
+    (this->*handlers[block.type])(block);
 
     sequence_number++;
-    buffer += block_length;
+    buffer += block_length + sizeof(block.length);
   }
 }
 
