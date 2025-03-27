@@ -57,9 +57,12 @@ $(TARGET): $(OBJS) $(DEPS)
 clean:
 	rm -f $(OBJS) $(DEPS)
 
-re: clean $(TARGET)
+fclean: clean
+	rm -f $(TARGET)
 
-.PHONY: clean re
-.IGNORE: clean
+re: fclean $(TARGET)
+
+.PHONY: fclean clean re
+.IGNORE: fclean clean
 .PRECIOUS: $(DEPS)
 .SILENT:
