@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-28 18:54:13                                                
+last edited: 2025-03-28 22:11:56                                                
 
 ================================================================================*/
 
@@ -30,10 +30,12 @@ COLD OrderBook::OrderBook(void)
 
 COLD OrderBook::~OrderBook(void) {}
 
-HOT void OrderBook::addOrder(const Side side, const uint32_t price, const uint64_t volume)
+HOT void OrderBook::addOrder(const uint64_t id, const Side side, const uint32_t price, const uint64_t volume)
 {
   std::vector<uint32_t> &prices = price_arrays[side];
   std::vector<uint64_t> &volumes = volume_arrays[side];
+
+  orders[id] = { price, volume };
 
   constexpr bool (*comparators[])(const uint32_t, const uint32_t) = {
     [](const uint32_t a, const uint32_t b) { return a < b; },
@@ -52,44 +54,43 @@ HOT void OrderBook::addOrder(const Side side, const uint32_t price, const uint64
   }
 }
 
-HOT void OrderBook::removeOrder(const Side side, const uint32_t price, const uint64_t volume)
+HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
 {
   std::vector<uint32_t> &prices = price_arrays[side];
   std::vector<uint64_t> &volumes = volume_arrays[side];
 
-  auto price_it = findPrice(prices, price, std::not_equal_to<uint32_t>());
+  const auto it = orders.find(id);
+  const Order &order = it->second;
+  orders.erase(it);
+
+  auto price_it = findPrice(prices, order.price, std::not_equal_to<uint32_t>());
   auto volume_it = volumes.begin() + std::distance(prices.cbegin(), price_it);
 
-  auto& value = *volume_it;
+  auto &available_volume = *volume_it;
+  available_volume -= order.volume;
 
-  error |= (price_it == prices.end());
-  error |= (value < volume);
-  CHECK_ERROR;
-
-  value -= volume;
-  if (UNLIKELY(value == 0))
+  if (UNLIKELY(available_volume == 0))
   {
     prices.erase(price_it);
     volumes.erase(volume_it);
   }
 }
 
-HOT void OrderBook::executeOrder(const Side resting_side, uint64_t volume)
+HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t volume)
 {
-  auto& volumes = volume_arrays[resting_side];
-  size_t size = volumes.size();
+  std::vector<uint32_t> &prices = price_arrays[side];
+  std::vector<uint64_t> &volumes = volume_arrays[side];
 
-  while (volume & size)
+  orders.erase(id);
+
+  auto &available_volume = volumes.back();
+  available_volume -= volume;
+
+  if (UNLIKELY(available_volume == 0))
   {
-    uint64_t &available = volumes[size - 1];
-    const uint64_t traded = std::min(available, volume);
-
-    available -= traded;
-    volume -= traded;
-    size -= (available == 0);
+    prices.pop_back();
+    volumes.pop_back();
   }
-
-  volumes.resize(size);
 }
 
 template <typename Compare>

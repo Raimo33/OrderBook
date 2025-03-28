@@ -5,14 +5,14 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-28 18:54:13                                                
+last edited: 2025-03-28 22:11:56                                                
 
 ================================================================================*/
 
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <array>
-#include <byteswap.h>
+#include <endian.h>
 #include <unistd.h>
 #include <cstring>
 
@@ -56,7 +56,7 @@ COLD sockaddr_in Client::createAddress(const std::string_view ip_str, const std:
 
   address.sin_addr.s_addr = inet_addr(ip);
   address.sin_family = AF_INET;
-  address.sin_port = bswap_16(port);
+  address.sin_port = be16toh(port);
 
   return address;
 }
@@ -158,8 +158,8 @@ HOT void Client::updateOrderbook(void)
       PREFETCH_R(header_ptr + 1, 1);
       PREFETCH_R(payload_ptr + MAX_MSG_SIZE, 1);
 
-      const uint64_t sequence_number = bswap_64(header_ptr->sequence_number);
-      const uint16_t message_count = bswap_16(header_ptr->message_count);
+      const uint64_t sequence_number = be64toh(header_ptr->sequence_number);
+      const uint16_t message_count = be16toh(header_ptr->message_count);
 
       error |= (sequence_number != this->sequence_number);
       processMessageBlocks(payload_ptr, message_count);
@@ -232,7 +232,7 @@ bool Client::recvSnapshot(void)
       return recvSnapshot();
     case 'S':
     {
-      const uint16_t payload_size = bswap_32(packet.length) - sizeof(packet.type);
+      const uint16_t payload_size = be32toh(packet.length) - sizeof(packet.type);
       std::vector<char> buffer(payload_size);
       error |= (recv(tcp_sock_fd, buffer.data(), payload_size, 0) == -1);
       CHECK_ERROR;
@@ -266,7 +266,7 @@ bool Client::processMessageBlocks(const std::vector<char> &buffer)
   while (it != end)
   {
     const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(&*it);
-    const uint16_t block_length = bswap_16(block.length);
+    const uint16_t block_length = be16toh(block.length);
 
     switch (block.type)
     {
@@ -317,7 +317,7 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
   while (blocks_count--)
   {
     const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(buffer);
-    const uint16_t block_length = bswap_16(block.length);
+    const uint16_t block_length = be16toh(block.length);
 
     PREFETCH_R(buffer + block_length, 3);
 
@@ -331,24 +331,22 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
 HOT void Client::handleNewOrder(const MessageBlock &block)
 {
   const auto &new_order = block.new_order;
+  const uint64_t order_id = be64toh(new_order.order_id);
   const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
-  const int32_t price = bswap_32(new_order.price);
-  const uint64_t volume = bswap_64(new_order.quantity);
+  const int32_t price = be32toh(new_order.price);
+  const uint64_t volume = be64toh(new_order.quantity);
 
   const bool is_limit = (price != INT32_MIN);
-  order_book.addOrder(side, price, volume * is_limit);
+  order_book.addOrder(order_id, side, price, volume * is_limit);
 }
 
-//TODO find a way to efficiently remove orders, and sanitize them before calling the orderbook
 HOT void Client::handleDeletedOrder(const MessageBlock &block)
 {
-  (void)block;
-  // const auto &deleted_order = block.deleted_order;
-  // const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
-  // const uint32_t price = bswap_32(deleted_order.price);
-  // const uint64_t volume = bswap_64(deleted_order.quantity);
+  const auto &deleted_order = block.deleted_order;
+  const uint64_t order_id = be64toh(deleted_order.order_id);
+  const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
 
-  // order_book.removeOrder(side, price, volume);
+  order_book.removeOrder(order_id, side);
 }
 
 HOT void Client::handleSeconds(const MessageBlock &block)
@@ -384,20 +382,16 @@ COLD void Client::handleTradingStatus(const MessageBlock &block)
 HOT void Client::handleExecutionNotice(const MessageBlock &block)
 {
   const auto &execution_notice = block.execution_notice;
+  const uint64_t order_id = be64toh(execution_notice.order_id);
   const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
-  const uint64_t volume = bswap_64(execution_notice.executed_quantity);
+  const uint64_t volume = be64toh(execution_notice.executed_quantity);
 
-  order_book.executeOrder(resting_side, volume);
+  order_book.executeOrder(order_id, resting_side, volume);
 }
 
 HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
 {
-  const auto &execution_notice = block.execution_notice_with_trade_info;
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
-  const uint64_t volume = bswap_64(execution_notice.executed_quantity);
-  const uint32_t price = bswap_32(execution_notice.trade_price);
-
-  order_book.removeOrder(resting_side, price, volume);
+  //TODO understand
 }
 
 COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
