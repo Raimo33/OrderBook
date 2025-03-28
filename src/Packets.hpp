@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 22:29:52                                                 
-last edited: 2025-03-23 22:29:52                                                
+last edited: 2025-03-28 18:54:13                                                
 
 ================================================================================*/
 
@@ -51,8 +51,8 @@ struct SoupBinTCPPacket
 struct MoldUDP64Header
 {
   char session[10];
-  uint16_t message_count;
   uint64_t sequence_number;
+  uint16_t message_count;
 };
 
 struct MessageBlock

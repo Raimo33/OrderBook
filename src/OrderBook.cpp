@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-27 21:29:54                                                
+last edited: 2025-03-28 18:54:13                                                
 
 ================================================================================*/
 
@@ -74,10 +74,9 @@ HOT void OrderBook::removeOrder(const Side side, const uint32_t price, const uin
   }
 }
 
-HOT void OrderBook::executeOrder(const Side side, UNUSED const uint32_t price, uint64_t volume)
+HOT void OrderBook::executeOrder(const Side resting_side, uint64_t volume)
 {
-  const Side other_side = static_cast<Side>(side ^ 1);
-  auto& volumes = volume_arrays[other_side];
+  auto& volumes = volume_arrays[resting_side];
   size_t size = volumes.size();
 
   while (volume & size)

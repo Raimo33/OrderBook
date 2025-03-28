@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-03-23 17:58:46                                                
+last edited: 2025-03-28 18:54:13                                                
 
 ================================================================================*/
 
@@ -29,7 +29,7 @@ class OrderBook
 
     void addOrder(const Side side, const uint32_t price, const uint64_t volume);
     void removeOrder(const Side side, const uint32_t price, const uint64_t volume);
-    void executeOrder(const Side side, UNUSED const uint32_t price, const uint64_t volume);
+    void executeOrder(const Side resting_side, const uint64_t volume);
 
   private:
 

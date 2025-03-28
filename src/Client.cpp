@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-27 19:08:48                                                
+last edited: 2025-03-28 18:54:13                                                
 
 ================================================================================*/
 
@@ -333,16 +333,10 @@ HOT void Client::handleNewOrder(const MessageBlock &block)
   const auto &new_order = block.new_order;
   const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
   const int32_t price = bswap_32(new_order.price);
-  const uint64_t volume = bswap_32(new_order.quantity);
+  const uint64_t volume = bswap_64(new_order.quantity);
 
-  using OrderHandler = void (OrderBook::*)(const OrderBook::Side, const uint32_t, const uint64_t);
-  alignas(64) constexpr std::array<OrderHandler, 2> handlers = {
-    &OrderBook::addOrder,
-    &OrderBook::removeOrder
-  }; 
-
-  const uint8_t idx = (price == INT32_MIN);
-  (order_book.*handlers[idx])(side, price, volume);
+  const bool is_limit = (price != INT32_MIN);
+  order_book.addOrder(side, price, volume * is_limit);
 }
 
 //TODO find a way to efficiently remove orders, and sanitize them before calling the orderbook
@@ -352,7 +346,7 @@ HOT void Client::handleDeletedOrder(const MessageBlock &block)
   // const auto &deleted_order = block.deleted_order;
   // const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
   // const uint32_t price = bswap_32(deleted_order.price);
-  // const uint64_t volume = bswap_32(deleted_order.quantity);
+  // const uint64_t volume = bswap_64(deleted_order.quantity);
 
   // order_book.removeOrder(side, price, volume);
 }
@@ -389,12 +383,21 @@ COLD void Client::handleTradingStatus(const MessageBlock &block)
 
 HOT void Client::handleExecutionNotice(const MessageBlock &block)
 {
-  (void)block;
+  const auto &execution_notice = block.execution_notice;
+  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
+  const uint64_t volume = bswap_64(execution_notice.executed_quantity);
+
+  order_book.executeOrder(resting_side, volume);
 }
 
 HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
 {
-  (void)block;
+  const auto &execution_notice = block.execution_notice_with_trade_info;
+  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
+  const uint64_t volume = bswap_64(execution_notice.executed_quantity);
+  const uint32_t price = bswap_32(execution_notice.trade_price);
+
+  order_book.removeOrder(resting_side, price, volume);
 }
 
 COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
