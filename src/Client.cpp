@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-28 22:11:56                                                
+last edited: 2025-03-28 22:13:07                                                
 
 ================================================================================*/
 
@@ -391,7 +391,7 @@ HOT void Client::handleExecutionNotice(const MessageBlock &block)
 
 HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
 {
-  //TODO understand
+  (void)block;
 }
 
 COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
