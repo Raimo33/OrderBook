@@ -319,7 +319,7 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
     const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(buffer);
     const uint16_t block_length = be16toh(block.length);
 
-    PREFETCH_R(buffer + block_length, 3);
+    PREFETCH_R(buffer + block_length + sizeof(block.length), 3);
 
     (this->*handlers[block.type])(block);
 
