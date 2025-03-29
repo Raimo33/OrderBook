@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-29 14:48:15                                                
+last edited: 2025-03-29 16:23:21                                                
 
 ================================================================================*/
 
@@ -17,11 +17,6 @@ extern volatile bool error;
 
 COLD OrderBook::OrderBook(void)
 {
-  for (auto &prices : price_arrays)
-    prices.reserve(1024);
-  for (auto &volumes : volume_arrays)
-    volumes.reserve(1024);
-
   price_arrays[BID].push_back(0);
   price_arrays[ASK].push_back(UINT32_MAX);
   volume_arrays[BID].push_back(0);

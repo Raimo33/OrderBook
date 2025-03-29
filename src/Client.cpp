@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-28 22:13:07                                                
+last edited: 2025-03-29 16:23:21                                                
 
 ================================================================================*/
 
@@ -349,34 +349,58 @@ HOT void Client::handleDeletedOrder(const MessageBlock &block)
   order_book.removeOrder(order_id, side);
 }
 
-HOT void Client::handleSeconds(const MessageBlock &block)
+HOT void Client::handleSeconds(UNUSED const MessageBlock &block)
 {
-  (void)block;
 }
 
-COLD void Client::handleSeriesInfoBasic(const MessageBlock &block)
+COLD void Client::handleSeriesInfoBasic(UNUSED const MessageBlock &block)
 {
-  (void)block;
 }
 
-COLD void Client::handleSeriesInfoBasicCombination(const MessageBlock &block)
+COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageBlock &block)
 {
-  (void)block;
 }
 
-COLD void Client::handleTickSizeData(const MessageBlock &block)
+COLD void Client::handleTickSizeData(UNUSED const MessageBlock &block)
 {
-  (void)block;
 }
 
-COLD void Client::handleSystemEvent(const MessageBlock &block)
+COLD void Client::handleSystemEvent(UNUSED const MessageBlock &block)
 {
-  (void)block;
 }
 
 COLD void Client::handleTradingStatus(const MessageBlock &block)
 {
-  (void)block;
+  const auto &trading_status = block.trading_status_data;
+  
+  using StatusName = std::array<char, 20>;
+  constexpr std::array<StatusName, 25> status_names = {{
+    "M_PRE_OPEN_NO_J-NET",
+    "M_PRE_OPEN",
+    "M_PRE_OPEN_NCP",
+    "M_ZARABA",
+    "A_ZARABA_E",
+    "A_ZARABA_E2",
+    "A_PRE_CLOSE",
+    "A_AUCTION_CLOSING",
+    "A_AUCTION_CLOSING2",
+    "A_AUCTION_END",
+    "A_CALC_SP",
+    "A_COLLECT_TRADE",
+    "J-NET_END",
+    "DAY_END",
+    "ORDER_REMOVE",
+    "N_PRE_OPEN",
+    "N_PRE_OPEN_NCP",
+    "N_ZARABA",
+    "N_PRE_CLOSE",
+    "N_PRE_CLOSE_NCP",
+    "N_AUCTION_CLOSING",
+    "N_AUCTION_CLOSING2",
+    "N_AUCTION_END",
+    "N_CLOSE",
+    "CLOSE"
+  }};
 }
 
 HOT void Client::handleExecutionNotice(const MessageBlock &block)
