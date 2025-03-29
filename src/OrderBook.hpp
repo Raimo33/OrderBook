@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-03-28 22:11:56                                                
+last edited: 2025-03-29 12:00:47                                                
 
 ================================================================================*/
 
@@ -15,6 +15,7 @@ last edited: 2025-03-28 22:11:56
 #include <array>
 #include <vector>
 #include <unordered_map>
+#include <ska/flat_hash_map.hpp>
 
 #include "macros.hpp"
 
@@ -43,7 +44,7 @@ class OrderBook
       uint64_t volume;
     } Order;
 
-    std::unordered_map<uint64_t, Order> orders; //TODO optimize speed of hashmap. default uses buckets...
+    ska::flat_hash_map<uint64_t, Order> orders;
 
     std::vector<uint32_t> price_arrays[2];
     std::vector<uint64_t> volume_arrays[2];

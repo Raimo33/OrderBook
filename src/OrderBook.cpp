@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-28 22:11:56                                                
+last edited: 2025-03-29 12:00:47                                                
 
 ================================================================================*/
 
@@ -35,7 +35,7 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const uint32_t 
   std::vector<uint32_t> &prices = price_arrays[side];
   std::vector<uint64_t> &volumes = volume_arrays[side];
 
-  orders[id] = { price, volume };
+  orders.emplace(id, Order{price, volume});
 
   constexpr bool (*comparators[])(const uint32_t, const uint32_t) = {
     [](const uint32_t a, const uint32_t b) { return a < b; },
@@ -45,15 +45,13 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const uint32_t 
   auto price_it = findPrice(prices, price, comparators[side]);
   auto volume_it = volumes.begin() + std::distance(prices.cbegin(), price_it);
 
-  if (LIKELY(price_it != prices.end() && *price_it == price))
-    *volume_it += volume;
-  else
-  {
-    prices.insert(price_it, price);
-    volumes.insert(volume_it, volume);
-  }
+  const bool exists = (price_it != prices.end()) && ((*price_it == price));
+  prices.insert(price_it, !exists, price);
+  volumes.insert(volume_it, !exists, volume);
+  *volume_it += volume * exists;
 }
 
+//TODO branchless
 HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
 {
   std::vector<uint32_t> &prices = price_arrays[side];
@@ -69,23 +67,23 @@ HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
   auto &available_volume = *volume_it;
   available_volume -= order.volume;
 
-  if (UNLIKELY(available_volume == 0))
-  {
-    prices.erase(price_it);
-    volumes.erase(volume_it);
-  }
+  const bool emptied = (available_volume == 0);
+  prices.erase(price_it, price_it + emptied);
+  volumes.erase(volume_it, volume_it + emptied);
 }
 
 HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t volume)
 {
   std::vector<uint32_t> &prices = price_arrays[side];
   std::vector<uint64_t> &volumes = volume_arrays[side];
-
+  
   orders.erase(id);
-
+  
   auto &available_volume = volumes.back();
   available_volume -= volume;
-
+  
+  //TODO branchless
+  const bool emptied = (available_volume == 0);
   if (UNLIKELY(available_volume == 0))
   {
     prices.pop_back();

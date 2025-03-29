@@ -11,6 +11,9 @@ CXXFLAGS += -std=c++23
 CXXFLAGS += -Wall -Wextra -Werror -pedantic
 #architecture
 CXXFLAGS += -march=znver2 -mtune=znver2
+
+#TODO benchmark all selectively
+
 #promises
 CXXFLAGS += -fomit-frame-pointer -fno-exceptions -fno-rtti -fstrict-aliasing -fno-math-errno -fno-stack-protector
 #overall settings
