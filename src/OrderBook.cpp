@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-29 18:37:54                                                
+last edited: 2025-03-29 23:01:33                                                
 
 ================================================================================*/
 
@@ -37,8 +37,8 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const uint32_t 
     [](const uint32_t a, const uint32_t b) { return a > b; }
   };
 
-  auto price_it = findPrice(prices, price, comparators[side]);
-  auto qty_it = qtys.begin() + std::distance(prices.cbegin(), price_it);
+  const auto price_it = findPrice(prices, price, comparators[side]);
+  const auto qty_it = qtys.begin() + std::distance(prices.cbegin(), price_it);
 
   if (LIKELY(price_it != prices.end()) && (*price_it == price))
     *qty_it += qty;
@@ -58,8 +58,8 @@ HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
   const Order &order = it->second;
   orders.erase(it);
 
-  auto price_it = findPrice(prices, order.price, std::not_equal_to<uint32_t>());
-  auto qty_it = qtys.begin() + std::distance(prices.cbegin(), price_it);
+  const auto price_it = findPrice(prices, order.price, std::not_equal_to<uint32_t>());
+  const auto qty_it = qtys.begin() + std::distance(prices.cbegin(), price_it);
 
   auto &available_qty = *qty_it;
   available_qty -= order.qty;

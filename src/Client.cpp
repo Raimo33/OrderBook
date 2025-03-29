@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-29 18:37:54                                                
+last edited: 2025-03-29 23:01:33                                                
 
 ================================================================================*/
 
@@ -371,7 +371,9 @@ COLD void Client::handleSystemEvent(UNUSED const MessageBlock &block)
 
 COLD void Client::handleTradingStatus(UNUSED const MessageBlock &block)
 {
-  //TODO listen for continuous trading begin signal and execute orders outside of EP
+  //"M_ZARABA", "A_ZARABA_E", "A_ZARABA_E2", "N_ZARABA", "A_ZARABA"
+  // if (status[2] == 'Z')
+  //   resumeTrading();
 }
 
 HOT void Client::handleExecutionNotice(const MessageBlock &block)
