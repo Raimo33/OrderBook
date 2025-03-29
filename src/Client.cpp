@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-29 16:23:21                                                
+last edited: 2025-03-29 18:37:54                                                
 
 ================================================================================*/
 
@@ -369,38 +369,9 @@ COLD void Client::handleSystemEvent(UNUSED const MessageBlock &block)
 {
 }
 
-COLD void Client::handleTradingStatus(const MessageBlock &block)
+COLD void Client::handleTradingStatus(UNUSED const MessageBlock &block)
 {
-  const auto &trading_status = block.trading_status_data;
-  
-  using StatusName = std::array<char, 20>;
-  constexpr std::array<StatusName, 25> status_names = {{
-    "M_PRE_OPEN_NO_J-NET",
-    "M_PRE_OPEN",
-    "M_PRE_OPEN_NCP",
-    "M_ZARABA",
-    "A_ZARABA_E",
-    "A_ZARABA_E2",
-    "A_PRE_CLOSE",
-    "A_AUCTION_CLOSING",
-    "A_AUCTION_CLOSING2",
-    "A_AUCTION_END",
-    "A_CALC_SP",
-    "A_COLLECT_TRADE",
-    "J-NET_END",
-    "DAY_END",
-    "ORDER_REMOVE",
-    "N_PRE_OPEN",
-    "N_PRE_OPEN_NCP",
-    "N_ZARABA",
-    "N_PRE_CLOSE",
-    "N_PRE_CLOSE_NCP",
-    "N_AUCTION_CLOSING",
-    "N_AUCTION_CLOSING2",
-    "N_AUCTION_END",
-    "N_CLOSE",
-    "CLOSE"
-  }};
+  //TODO listen for continuous trading begin signal and execute orders outside of EP
 }
 
 HOT void Client::handleExecutionNotice(const MessageBlock &block)
@@ -420,5 +391,11 @@ HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
 
 COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
 {
-  (void)block;
+  const auto &equilibrium_price = block.ep;
+  const int32_t price = be32toh(equilibrium_price.equilibrium_price);
+  const uint64_t bid_qty = be64toh(equilibrium_price.available_bid_quantity);
+  const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
+
+  const bool exists = (price != INT32_MIN);
+  order_book.setEquilibrium(price * exists, bid_qty, ask_qty);
 }
