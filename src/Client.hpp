@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-03-23 17:58:46                                                
+last edited: 2025-03-30 11:47:30                                                
 
 ================================================================================*/
 
@@ -39,13 +39,13 @@ class Client
     void fetchOrderbook(void);
     void updateOrderbook(void);
 
-    bool sendLogin(void);
-    bool recvLogin(void);
-    bool recvSnapshot(void);
-    bool sendLogout(void);
+    void sendLogin(void) const;
+    void recvLogin(void);
+    void recvSnapshot(void);
+    void sendLogout(void) const;
 
     bool processMessageBlocks(const std::vector<char> &buffer);
-    void processMessageBlocks(const char *buffer, uint16_t blocks_count);
+    void processMessageBlocks(const char *restrict buffer, uint16_t blocks_count);
 
     void handleNewOrder(const MessageBlock &block);
     void handleDeletedOrder(const MessageBlock &block);

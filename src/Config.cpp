@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 11:22:28                                                 
-last edited: 2025-03-27 19:08:48                                                
+last edited: 2025-03-30 11:47:30                                                
 
 ================================================================================*/
 
@@ -31,6 +31,6 @@ Config::Config(void) :
 static std::string safe_getenv(const char* var)
 {
   const char* val = std::getenv(var);
-  error |= (val == nullptr);
+  error |= val == nullptr);
   return val;
 }

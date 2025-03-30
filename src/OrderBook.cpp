@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-29 23:01:33                                                
+last edited: 2025-03-30 11:47:30                                                
 
 ================================================================================*/
 
@@ -25,16 +25,16 @@ COLD OrderBook::OrderBook(void)
 
 COLD OrderBook::~OrderBook(void) {}
 
-HOT void OrderBook::addOrder(const uint64_t id, const Side side, const uint32_t price, const uint64_t qty)
+HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t price, const uint64_t qty)
 {
-  std::vector<uint32_t> &prices = price_arrays[side];
+  std::vector<int32_t> &prices = price_arrays[side];
   std::vector<uint64_t> &qtys = qty_arrays[side];
 
   orders.emplace(id, Order{price, qty});
 
-  constexpr bool (*comparators[])(const uint32_t, const uint32_t) = {
-    [](const uint32_t a, const uint32_t b) { return a < b; },
-    [](const uint32_t a, const uint32_t b) { return a > b; }
+  constexpr bool (*comparators[])(const int32_t, const int32_t) = {
+    [](const int32_t a, const int32_t b) { return a < b; },
+    [](const int32_t a, const int32_t b) { return a > b; }
   };
 
   const auto price_it = findPrice(prices, price, comparators[side]);
@@ -51,14 +51,24 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const uint32_t 
 
 HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
 {
-  std::vector<uint32_t> &prices = price_arrays[side];
-  std::vector<uint64_t> &qtys = qty_arrays[side];
-
   const auto it = orders.find(id);
   const Order &order = it->second;
-  orders.erase(it);
 
-  const auto price_it = findPrice(prices, order.price, std::not_equal_to<uint32_t>());
+  removeOrder(price_arrays[side], qty_arrays[side], order);
+  orders.erase(it);
+}
+
+HOT void OrderBook::removeOrder(const uint64_t id, const Side side, const int32_t price, const uint64_t qty)
+{
+  const Order order = {price, qty};
+
+  removeOrder(price_arrays[side], qty_arrays[side], order);
+  orders.erase(id);
+}
+
+HOT void OrderBook::removeOrder(std::vector<int32_t> &prices, std::vector<uint64_t> &qtys, const Order &order)
+{
+  const auto price_it = findPrice(prices, order.price, std::not_equal_to<int32_t>());
   const auto qty_it = qtys.begin() + std::distance(prices.cbegin(), price_it);
 
   auto &available_qty = *qty_it;
@@ -73,7 +83,7 @@ HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
 
 HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qty)
 {
-  std::vector<uint32_t> &prices = price_arrays[side];
+  std::vector<int32_t> &prices = price_arrays[side];
   std::vector<uint64_t> &qtys = qty_arrays[side];
 
   orders.erase(id);
@@ -89,7 +99,7 @@ HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qt
 }
 
 template <typename Compare>
-HOT std::vector<uint32_t>::const_iterator OrderBook::findPrice(const std::vector<uint32_t> &prices, const uint32_t price, Compare comp) const
+HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<int32_t> &prices, const int32_t price, Compare comp) const
 {
   auto it = prices.crbegin();
   auto end = prices.crend();

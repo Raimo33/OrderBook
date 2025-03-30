@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-29 23:01:33                                                
+last edited: 2025-03-30 11:47:30                                                
 
 ================================================================================*/
 
@@ -34,15 +34,15 @@ COLD Client::Client(void) :
   const sockaddr_in bind_address_tcp = createAddress(config.bind_ip, "0");
   const sockaddr_in bind_address_udp = createAddress(config.bind_ip, config.multicast_port);
 
-  error |= (bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp)) == -1);
-  error |= (bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp)) == -1);
+  error |= bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp)) == -1;
+  error |= bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp)) == -1;
 
   ip_mreq mreq{};
   mreq.imr_interface.s_addr = bind_address_udp.sin_addr.s_addr;
   mreq.imr_multiaddr.s_addr = multicast_address.sin_addr.s_addr;
 
-  error |= (setsockopt(udp_sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1);
-  error |= (connect(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address)) == -1);
+  error |= setsockopt(udp_sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1;
+  error |= connect(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address)) == -1;
 
   CHECK_ERROR;
 }
@@ -64,13 +64,13 @@ COLD sockaddr_in Client::createAddress(const std::string_view ip_str, const std:
 COLD int Client::createTcpSocket(void) const noexcept
 {
   const int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-  error |= (sock_fd == -1);
+  error |= sock_fd == -1;
 
   constexpr int enable = 1;
 
-  error |= (setsockopt(sock_fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable)) == -1);
-  error |= (setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)) == -1);
-  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1);
+  error |= setsockopt(sock_fd, IPPROTO_TCP, TCP_FASTOPEN, &enable, sizeof(enable)) == -1;
+  error |= setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)) == -1;
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1;
 
   CHECK_ERROR;
 
@@ -80,16 +80,16 @@ COLD int Client::createTcpSocket(void) const noexcept
 COLD int Client::createUdpSocket(void) const noexcept
 {
   const int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
-  error |= (sock_fd == -1);
+  error |= sock_fd == -1;
 
   constexpr int enable = 1;
   constexpr int disable = 0;
   constexpr int priority = 255;
 
-  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1);
-  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) == -1);
-  error |= (setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &disable, sizeof(disable)) == -1);
-  error |= (setsockopt(sock_fd, SOL_SOCKET, SO_BUSY_POLL, &enable, sizeof(enable)) == -1);
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1;
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) == -1;
+  error |= setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &disable, sizeof(disable)) == -1;
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_BUSY_POLL, &enable, sizeof(enable)) == -1;
   //TODO SO_RCVBUF (not < than MTU)
   //TODO SO_BINDTODEVICE
   //TODO IP_MULTICAST_IF
@@ -116,10 +116,7 @@ COLD void Client::fetchOrderbook(void)
 {
   sendLogin();
   recvLogin();
-
-  while (!recvSnapshot())
-    continue;
-
+  recvSnapshot();
   sendLogout();
 }
 
@@ -148,7 +145,7 @@ HOT void Client::updateOrderbook(void)
   while (true)
   {
     int8_t packets_count = recvmmsg(udp_sock_fd, packets, MAX_PACKETS, MSG_WAITFORONE, nullptr);
-    error |= (packets_count == -1);
+    error |= packets_count == -1;
 
     const MoldUDP64Header *header_ptr = headers;
     const char *payload_ptr = reinterpret_cast<char *>(payloads);
@@ -161,7 +158,7 @@ HOT void Client::updateOrderbook(void)
       const uint64_t sequence_number = be64toh(header_ptr->sequence_number);
       const uint16_t message_count = be16toh(header_ptr->message_count);
 
-      error |= (sequence_number != this->sequence_number);
+      error |= sequence_number != this->sequence_number);
       processMessageBlocks(payload_ptr, message_count);
 
       header_ptr++;
@@ -173,7 +170,7 @@ HOT void Client::updateOrderbook(void)
   UNREACHABLE;
 }
 
-COLD bool Client::sendLogin(void)
+COLD void Client::sendLogin(void) const
 {
   SoupBinTCPPacket packet{};
 
@@ -188,62 +185,67 @@ COLD bool Client::sendLogin(void)
   login.requested_sequence[0] = '1';
 
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type) + sizeof(login);
-  error |= (send(tcp_sock_fd, &packet, packet_size, 0) == -1);
+  error |= send(tcp_sock_fd, &packet, packet_size, 0) == -1;
   CHECK_ERROR;
-
-  return true;
 }
 
-COLD bool Client::recvLogin(void)
+COLD void Client::recvLogin(void)
 {
   SoupBinTCPPacket packet{};
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
-  error |= (recv(tcp_sock_fd, &packet, header_size, 0) == -1);
+  error |= recv(tcp_sock_fd, &packet, header_size, 0) == -1;
   CHECK_ERROR;
 
   switch (packet.type)
   {
     case 'H':
-      return recvLogin();
+      recvLogin();
+      break;
     case 'A':
     {
-      error |= (recv(tcp_sock_fd, &packet.login_acceptance, sizeof(packet.login_acceptance), 0) == -1);
+      error |= recv(tcp_sock_fd, &packet.login_acceptance, sizeof(packet.login_acceptance), 0) == -1;
       CHECK_ERROR;
       sequence_number = std::stoull(packet.login_acceptance.sequence);
-      return true;
+      break;
     }
     default:
       panic();
   }
 }
 
-bool Client::recvSnapshot(void)
+void Client::recvSnapshot(void)
 {
   SoupBinTCPPacket packet{};
   constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
-  error |= (recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size, 0) == -1);
+  error |= recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size, 0) == -1;
   CHECK_ERROR;
 
   switch (packet.type)
   {
     case 'H':
-      return recvSnapshot();
+      break;
     case 'S':
     {
       const uint16_t payload_size = be32toh(packet.length) - sizeof(packet.type);
       std::vector<char> buffer(payload_size);
-      error |= (recv(tcp_sock_fd, buffer.data(), payload_size, 0) == -1);
+      error |= recv(tcp_sock_fd, buffer.data(), payload_size, 0) == -1;
       CHECK_ERROR;
-      return processMessageBlocks(buffer);
+
+      if (UNLIKELY(processMessageBlocks(buffer)))
+        return;
+      
+      break;
     }
     default:
       panic();
   }
+
+  recvSnapshot();
 }
 
-COLD bool Client::sendLogout(void)
+COLD void Client::sendLogout(void) const
 {
   constexpr SoupBinTCPPacket packet = {
     .length = 1,
@@ -252,10 +254,8 @@ COLD bool Client::sendLogout(void)
   };
   constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type);
 
-  error |= (send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size, 0) == -1);
+  error |= send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size, 0) == -1;
   CHECK_ERROR;
-
-  return true;
 }
 
 bool Client::processMessageBlocks(const std::vector<char> &buffer)
@@ -334,10 +334,12 @@ HOT void Client::handleNewOrder(const MessageBlock &block)
   const uint64_t order_id = be64toh(new_order.order_id);
   const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
   const int32_t price = be32toh(new_order.price);
-  const uint64_t volume = be64toh(new_order.quantity);
+  const uint64_t qty = be64toh(new_order.quantity);
 
-  const bool is_limit = (price != INT32_MIN);
-  order_book.addOrder(order_id, side, price, volume * is_limit);
+  if (price == INT32_MIN)
+    return;
+
+  order_book.addOrder(order_id, side, price, qty);
 }
 
 HOT void Client::handleDeletedOrder(const MessageBlock &block)
@@ -347,6 +349,37 @@ HOT void Client::handleDeletedOrder(const MessageBlock &block)
   const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
 
   order_book.removeOrder(order_id, side);
+}
+
+HOT void Client::handleExecutionNotice(const MessageBlock &block)
+{
+  const auto &execution_notice = block.execution_notice;
+  const uint64_t order_id = be64toh(execution_notice.order_id);
+  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
+  const uint64_t qty = be64toh(execution_notice.executed_quantity);
+
+  order_book.executeOrder(order_id, resting_side, qty);
+}
+
+HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
+{
+  const auto &execution_notice = block.execution_notice_with_trade_info;
+  const uint64_t order_id = be64toh(execution_notice.order_id);
+  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
+  const uint64_t qty = be64toh(execution_notice.executed_quantity);
+  const int32_t price = be32toh(execution_notice.trade_price);
+
+  order_book.removeOrder(order_id, resting_side, price, qty);
+}
+
+COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
+{
+  const auto &equilibrium_price = block.ep;
+  const int32_t price = be32toh(equilibrium_price.equilibrium_price);
+  const uint64_t bid_qty = be64toh(equilibrium_price.available_bid_quantity);
+  const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
+
+  order_book.setEquilibrium(price, bid_qty, ask_qty);
 }
 
 HOT void Client::handleSeconds(UNUSED const MessageBlock &block)
@@ -374,30 +407,4 @@ COLD void Client::handleTradingStatus(UNUSED const MessageBlock &block)
   //"M_ZARABA", "A_ZARABA_E", "A_ZARABA_E2", "N_ZARABA", "A_ZARABA"
   // if (status[2] == 'Z')
   //   resumeTrading();
-}
-
-HOT void Client::handleExecutionNotice(const MessageBlock &block)
-{
-  const auto &execution_notice = block.execution_notice;
-  const uint64_t order_id = be64toh(execution_notice.order_id);
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
-  const uint64_t volume = be64toh(execution_notice.executed_quantity);
-
-  order_book.executeOrder(order_id, resting_side, volume);
-}
-
-HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
-{
-  (void)block;
-}
-
-COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
-{
-  const auto &equilibrium_price = block.ep;
-  const int32_t price = be32toh(equilibrium_price.equilibrium_price);
-  const uint64_t bid_qty = be64toh(equilibrium_price.available_bid_quantity);
-  const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
-
-  const bool exists = (price != INT32_MIN);
-  order_book.setEquilibrium(price * exists, bid_qty, ask_qty);
 }
