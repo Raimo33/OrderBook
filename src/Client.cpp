@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-30 12:27:22                                                
+last edited: 2025-03-30 15:01:52                                                
 
 ================================================================================*/
 
@@ -17,23 +17,21 @@ last edited: 2025-03-30 12:27:22
 #include <cstring>
 
 #include "Client.hpp"
-#include "Config.hpp"
+#include "config.hpp"
 #include "macros.hpp"
 #include "error.hpp"
 
 COLD Client::Client(void) :
-  config(),
   order_book(),
-  glimpse_address(createAddress(config.glimpse_ip, config.glimpse_port)),
-  multicast_address(createAddress(config.multicast_ip, config.multicast_port)),
-  rewind_address(createAddress(config.rewind_ip, config.rewind_port)),
+  glimpse_address(createAddress(GLIMPSE_IP, GLIMPSE_PORT)),
+  multicast_address(createAddress(MULTICAST_IP, MULTICAST_PORT)),
+  rewind_address(createAddress(REWIND_IP, REWIND_PORT)),
+  bind_address_tcp(createAddress(BIND_IP, "0")),
+  bind_address_udp(createAddress(BIND_IP, MULTICAST_PORT)),
   tcp_sock_fd(createTcpSocket()),
   udp_sock_fd(createUdpSocket()),
   sequence_number(0)
 {
-  const sockaddr_in bind_address_tcp = createAddress(config.bind_ip, "0");
-  const sockaddr_in bind_address_udp = createAddress(config.bind_ip, config.multicast_port);
-
   error |= bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp)) == -1;
   error |= bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp)) == -1;
 
@@ -85,12 +83,13 @@ COLD int Client::createUdpSocket(void) const noexcept
   constexpr int enable = 1;
   constexpr int disable = 0;
   constexpr int priority = 255;
+  constexpr int recv_bufsize = SOCK_BUFSIZE;
 
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) == -1;
   error |= setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &disable, sizeof(disable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_BUSY_POLL, &enable, sizeof(enable)) == -1;
-  //TODO SO_RCVBUF (not < than MTU)
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_RCVBUF, &recv_bufsize, sizeof(recv_bufsize)) == -1;
   //TODO SO_BINDTODEVICE
   //TODO IP_MULTICAST_IF
   //TODO SO_BUSY_POLL_BUDGET
@@ -122,48 +121,41 @@ COLD void Client::fetchOrderbook(void)
 
 HOT void Client::updateOrderbook(void)
 {
-  constexpr uint8_t MAX_PACKETS = 16;
-  constexpr uint16_t MTU = 1500;
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
   //+1 added for safe prefetching past the last packet 
-  alignas(64) mmsghdr packets[MAX_PACKETS+1];
-  alignas(64) iovec iov[MAX_PACKETS+1][2];
-  alignas(64) MoldUDP64Header headers[MAX_PACKETS+1];
-  alignas(64) char payloads[MAX_PACKETS+1][MAX_MSG_SIZE];
+  alignas(64) mmsghdr mmsgs[MAX_BURST_PACKETS+1]{};
+  alignas(64) iovec iov[2][MAX_BURST_PACKETS+1]{};
+  alignas(64) struct Packet {
+    MoldUDP64Header header;
+    char payload[MAX_MSG_SIZE];
+  } packets[MAX_BURST_PACKETS+1]{};
 
-  for (uint8_t i = 0; i < MAX_PACKETS; ++i)
+  for (int i = 0; i < MAX_BURST_PACKETS; ++i)
   {
-    iov[i][0] = { &headers[i], sizeof(headers[i]) };
-    iov[i][1] = { payloads[i], sizeof(payloads[i]) };
+    iov[0][i] = { &packets[i].header, sizeof(MoldUDP64Header) };
+    iov[1][i] = { packets[i].payload, MAX_MSG_SIZE };
 
-    msghdr &msg_hdr = packets[i].msg_hdr;
-    msg_hdr.msg_iov = iov[i];
-    msg_hdr.msg_iovlen = 2;
+    mmsgs[i].msg_hdr.msg_iov = &iov[0][i];
+    mmsgs[i].msg_hdr.msg_iovlen = 2;
   }
 
   while (true)
   {
-    int8_t packets_count = recvmmsg(udp_sock_fd, packets, MAX_PACKETS, MSG_WAITFORONE, nullptr);
+    int8_t packets_count = recvmmsg(udp_sock_fd, mmsgs, MAX_BURST_PACKETS, MSG_WAITFORONE, nullptr);
     error |= packets_count == -1;
+    const Packet *packet = packets;
 
-    const MoldUDP64Header *header_ptr = headers;
-    const char *payload_ptr = reinterpret_cast<char *>(payloads);
-
-    while (packets_count--)
+    while(packets_count--)
     {
-      PREFETCH_R(header_ptr + 1, 1);
-      PREFETCH_R(payload_ptr + MAX_MSG_SIZE, 1);
+      PREFETCH_R(packet + 1, 1);
+      const MoldUDP64Header &header = packet->header;
 
-      const uint64_t sequence_number = be64toh(header_ptr->sequence_number);
-      const uint16_t message_count = be16toh(header_ptr->message_count);
+      error |= (header.sequence_number != this->sequence_number);
+      processMessageBlocks(packet->payload, header.message_count);
+      this->sequence_number += header.message_count;
 
-      error |= (sequence_number != this->sequence_number);
-      processMessageBlocks(payload_ptr, message_count);
-      this->sequence_number += message_count;
-
-      header_ptr++;
-      payload_ptr += MAX_MSG_SIZE;
+      packet++;
     }
 
     CHECK_ERROR;
@@ -180,8 +172,8 @@ COLD void Client::sendLogin(void) const
 
   auto &login = packet.login_request;
 
-  std::memcpy(login.username, config.username.data(), sizeof(login.username));
-  std::memcpy(login.password, config.password.data(), sizeof(login.password));
+  std::strcpy(login.username, USERNAME);
+  std::strcpy(login.password, PASSWORD);
   std::memset(login.requested_session, ' ', sizeof(login.requested_session));
   login.requested_sequence[0] = '1';
 

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-03-30 11:47:30                                                
+last edited: 2025-03-30 15:01:52                                                
 
 ================================================================================*/
 
@@ -18,7 +18,6 @@ last edited: 2025-03-30 11:47:30
 #include <memory>
 #include <chrono>
 
-#include "Config.hpp"
 #include "OrderBook.hpp"
 #include "Packets.hpp"
 
@@ -59,11 +58,12 @@ class Client
     void handleExecutionNoticeWithTradeInfo(const MessageBlock &block);
     void handleEquilibriumPrice(const MessageBlock &block);
 
-    Config config;
     OrderBook order_book;
     const sockaddr_in glimpse_address;
     const sockaddr_in multicast_address;
     const sockaddr_in rewind_address;
+    const sockaddr_in bind_address_tcp;
+    const sockaddr_in bind_address_udp;
     const int tcp_sock_fd;
     const int udp_sock_fd;
     uint64_t sequence_number;

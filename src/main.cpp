@@ -5,14 +5,13 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-03-30 12:27:22                                                
+last edited: 2025-03-30 15:01:52                                                
 
 ================================================================================*/
 
 #include <csignal>
 
 #include "Client.hpp"
-#include "Config.hpp"
 #include "error.hpp"
 
 volatile bool error = false;
