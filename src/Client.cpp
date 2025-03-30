@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-30 15:29:38                                                
+last edited: 2025-03-30 15:51:09                                                
 
 ================================================================================*/
 
@@ -21,7 +21,9 @@ last edited: 2025-03-30 15:29:38
 #include "macros.hpp"
 #include "error.hpp"
 
-COLD Client::Client(void) :
+COLD Client::Client(const std::string_view username, const std::string_view password) noexcept :
+  username(username),
+  password(password),
   order_book(),
   glimpse_address(createAddress(GLIMPSE_IP, GLIMPSE_PORT)),
   multicast_address(createAddress(MULTICAST_IP, MULTICAST_PORT)),
@@ -174,8 +176,8 @@ COLD void Client::sendLogin(void) const
 
   auto &login = packet.login_request;
 
-  std::strcpy(login.username, USERNAME);
-  std::strcpy(login.password, PASSWORD);
+  std::strcpy(login.username, username.data());
+  std::strcpy(login.password, password.data());
   std::memset(login.requested_session, ' ', sizeof(login.requested_session));
   login.requested_sequence[0] = '1';
 

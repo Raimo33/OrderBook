@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-30 15:01:52                                                 
-last edited: 2025-03-30 15:01:52                                                
+last edited: 2025-03-30 15:51:09                                                
 
 ================================================================================*/
 
@@ -18,9 +18,6 @@ last edited: 2025-03-30 15:01:52
 
 #define GLIMPSE_IP "10.18.18.1"
 #define GLIMPSE_PORT "21814"
-
-#define USERNAME "GLMP1"
-#define PASSWORD "kc794ek4"
 
 #define MTU 1500
 #define SOCK_BUFSIZE 8388608

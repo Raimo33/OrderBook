@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-03-30 15:01:52                                                
+last edited: 2025-03-30 15:51:09                                                
 
 ================================================================================*/
 
@@ -22,11 +22,14 @@ volatile bool error = false;
 
 void init_signal_handler(void);
 
-int main(void)
+int main(int argc, char **argv)
 {
+  if (argc != 3)
+    return 1;
+
   init_signal_handler();
 
-  Client client;
+  Client client(argv[1], argv[2]);
   client.run();
 }
 

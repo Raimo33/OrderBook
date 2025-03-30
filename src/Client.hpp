@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-03-30 15:01:52                                                
+last edited: 2025-03-30 15:51:09                                                
 
 ================================================================================*/
 
@@ -24,7 +24,7 @@ last edited: 2025-03-30 15:01:52
 class Client
 {
   public:
-    Client(void);
+    Client(const std::string_view username, const std::string_view password) noexcept;
     ~Client(void) noexcept;
 
     void run(void);
@@ -58,6 +58,8 @@ class Client
     void handleExecutionNoticeWithTradeInfo(const MessageBlock &block);
     void handleEquilibriumPrice(const MessageBlock &block);
 
+    const std::string username;
+    const std::string password;
     OrderBook order_book;
     const sockaddr_in glimpse_address;
     const sockaddr_in multicast_address;
