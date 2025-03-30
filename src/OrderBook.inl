@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-03-30 11:47:30                                                
+last edited: 2025-03-30 19:04:28                                                
 
 ================================================================================*/
 
@@ -17,22 +17,22 @@ last edited: 2025-03-30 11:47:30
 
 extern volatile bool error;
 
-HOT inline std::pair<int32_t, uint64_t> OrderBook::getBestBid(void) const noexcept
+HOT inline OrderBook::BookEntry OrderBook::getBestBid(void) const noexcept
 {
   return {price_arrays[BID].back(), qty_arrays[BID].back()};
 }
 
-HOT inline std::pair<int32_t, uint64_t> OrderBook::getBestAsk(void) const noexcept
+HOT inline OrderBook::BookEntry OrderBook::getBestAsk(void) const noexcept
 {
   return {price_arrays[ASK].back(), qty_arrays[ASK].back()};
 }
 
-HOT inline std::pair<int32_t, uint64_t> OrderBook::getEquilibriumPriceBid(void) const noexcept
+HOT inline OrderBook::BookEntry OrderBook::getEquilibriumPriceBid(void) const noexcept
 {
   return {equilibrium_price, equilibrium_bid_qty};
 }
 
-inline std::pair<int32_t, uint64_t> OrderBook::getEquilibriumPriceAsk(void) const noexcept
+inline OrderBook::BookEntry OrderBook::getEquilibriumPriceAsk(void) const noexcept
 {
   return {equilibrium_price, equilibrium_ask_qty};
 }

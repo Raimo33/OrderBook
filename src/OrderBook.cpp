@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-30 18:58:16                                                
+last edited: 2025-03-30 19:04:28                                                
 
 ================================================================================*/
 
@@ -32,7 +32,7 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t p
   std::vector<int32_t> &prices = price_arrays[side];
   std::vector<uint64_t> &qtys = qty_arrays[side];
 
-  orders.emplace(id, Order{price, qty});
+  orders.emplace(id, BookEntry{price, qty});
 
   constexpr bool (*comparators[])(const int32_t, const int32_t) = {
     [](const int32_t a, const int32_t b) { return a < b; },
@@ -54,7 +54,7 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t p
 HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
 {
   const auto it = orders.find(id);
-  const Order &order = it->second;
+  const BookEntry &order = it->second;
 
   removeOrder(price_arrays[side], qty_arrays[side], order);
   orders.erase(it);
@@ -62,13 +62,13 @@ HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
 
 HOT void OrderBook::removeOrder(const uint64_t id, const Side side, const int32_t price, const uint64_t qty)
 {
-  const Order order = {price, qty};
+  const BookEntry order = {price, qty};
 
   removeOrder(price_arrays[side], qty_arrays[side], order);
   orders.erase(id);
 }
 
-HOT void OrderBook::removeOrder(std::vector<int32_t> &prices, std::vector<uint64_t> &qtys, const Order &order)
+HOT void OrderBook::removeOrder(std::vector<int32_t> &prices, std::vector<uint64_t> &qtys, const BookEntry &order)
 {
   const auto price_it = findPrice(prices, order.price, std::not_equal_to<int32_t>());
   const auto qty_it = qtys.begin() + std::distance(prices.cbegin(), price_it);
@@ -114,11 +114,11 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
 
   while (current - data >= 16)
   {
-    const uint8_t prefetch_offset = (current - data >= 32) * 32;
-    PREFETCH_R(current - prefetch_offset, 0);
-
     const __m512i chunk = _mm512_loadu_si512(current - 16);
     __mmask16 mask;
+
+    const uint8_t prefetch_offset = (current - data >= 32) * 32;
+    PREFETCH_R(current - prefetch_offset, 0);
 
     if constexpr (std::is_same_v<Compare, std::less<int32_t>>)
       mask = _mm512_cmplt_epi32_mask(chunk, price_vec);
@@ -142,11 +142,11 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
 
   while (current - data >= 8)
   {
-    const uint8_t prefetch_offset = (current - data >= 16) * 16;
-    PREFETCH_R(current - prefetch_offset, 0);
-
     const __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(current - 8));
     __m256i comp_result;
+
+    const uint8_t prefetch_offset = (current - data >= 16) * 16;
+    PREFETCH_R(current - prefetch_offset, 0);
 
     if constexpr (std::is_same_v<Compare, std::less<int32_t>>)
       comp_result = _mm256_cmpgt_epi32(price_vec, chunk);
