@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-30 15:01:52                                                
+last edited: 2025-03-30 15:29:38                                                
 
 ================================================================================*/
 
@@ -150,15 +150,17 @@ HOT void Client::updateOrderbook(void)
     {
       PREFETCH_R(packet + 1, 1);
       const MoldUDP64Header &header = packet->header;
+      const uint64_t sequence_number = be64toh(header.sequence_number);
+      const uint16_t message_count = be16toh(header.message_count);
 
-      error |= (header.sequence_number != this->sequence_number);
-      processMessageBlocks(packet->payload, header.message_count);
-      this->sequence_number += header.message_count;
+      error |= (sequence_number != this->sequence_number);
+      CHECK_ERROR;
 
+      processMessageBlocks(packet->payload, message_count);
+
+      this->sequence_number += message_count;
       packet++;
     }
-
-    CHECK_ERROR;
   }
   UNREACHABLE;
 }
