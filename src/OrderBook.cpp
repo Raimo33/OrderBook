@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-30 18:18:04                                                
+last edited: 2025-03-30 18:50:01                                                
 
 ================================================================================*/
 
@@ -114,6 +114,8 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
 
   while (current - data >= 16)
   {
+    PREFETCH_R(current - 16, 0);
+
     const __m512i chunk = _mm512_loadu_si512(current - 16);
     __mmask16 mask;
 
@@ -139,6 +141,8 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
 
   while (current - data >= 8)
   {
+    PREFETCH_R(current - 8, 0);
+
     const __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(current - 8));
     __m256i comp_result;
 
