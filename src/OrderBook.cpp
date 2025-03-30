@@ -5,9 +5,11 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-30 11:47:30                                                
+last edited: 2025-03-30 18:18:04                                                
 
 ================================================================================*/
+
+#include <immintrin.h>
 
 #include "OrderBook.hpp"
 #include "macros.hpp"
@@ -101,12 +103,73 @@ HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qt
 template <typename Compare>
 HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<int32_t> &prices, const int32_t price, Compare comp) const
 {
-  auto it = prices.crbegin();
-  auto end = prices.crend();
+  const size_t size = prices.size();
+  const int32_t *data = prices.data();
 
-  //TOOD SIMD backwards, 16 elements at once
-  while (it != end && comp(*it, price))
-    ++it;
+  const int32_t *current = data + size - 1;
 
-  return it.base();
+#if defined(__AVX512F__)
+
+  const __m512i price_vec = _mm512_set1_epi32(price);
+
+  while (current - data >= 16)
+  {
+    const __m512i chunk = _mm512_loadu_si512(current - 16);
+    __mmask16 mask;
+
+    if constexpr (std::is_same_v<Compare, std::less<int32_t>>)
+      mask = _mm512_cmplt_epi32_mask(chunk, price_vec);
+    else if constexpr (std::is_same_v<Compare, std::greater<int32_t>>)
+      mask = _mm512_cmpgt_epi32_mask(chunk, price_vec);
+    else
+      mask = _mm512_cmpeq_epi32_mask(chunk, price_vec);
+
+    if (mask != 0xFFFF)
+    {
+      const uint32_t mismatch_pos = _tzcnt_u32(~mask);
+      return prices.cbegin() + std::distance(data, current - 16 + mismatch_pos);
+    }
+
+    current -= 16;
+  }
+
+#elif defined(__AVX2__)
+
+  const __m256i price_vec = _mm256_set1_epi32(price);
+
+  while (current - data >= 8)
+  {
+    const __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(current - 8));
+    __m256i comp_result;
+
+    if constexpr (std::is_same_v<Compare, std::less<int32_t>>)
+      comp_result = _mm256_cmpgt_epi32(price_vec, chunk);
+    else if constexpr (std::is_same_v<Compare, std::greater<int32_t>>)
+      comp_result = _mm256_cmpgt_epi32(chunk, price_vec);
+    else
+      comp_result = _mm256_cmpeq_epi32(chunk, price_vec);
+
+    uint64_t mask = _mm256_movemask_epi8(comp_result);
+    mask = _pext_u64(mask, 0x1111111111111111);
+
+    if (mask != 0xFF)
+    {
+      const uint32_t mismatch_pos = _tzcnt_u32(~mask);
+      return prices.cbegin() + std::distance(data, current - 8 + mismatch_pos);
+    }
+
+    current -= 8;
+  }
+
+#endif
+
+  while (current >= data)
+  {
+    if (comp(*current, price))
+      return prices.cbegin() + std::distance(data, current);
+
+    --current;
+  }
+
+  return prices.cend();
 }
