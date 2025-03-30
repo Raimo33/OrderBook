@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-30 11:47:30                                                
+last edited: 2025-03-30 12:27:22                                                
 
 ================================================================================*/
 
@@ -158,8 +158,9 @@ HOT void Client::updateOrderbook(void)
       const uint64_t sequence_number = be64toh(header_ptr->sequence_number);
       const uint16_t message_count = be16toh(header_ptr->message_count);
 
-      error |= sequence_number != this->sequence_number);
+      error |= (sequence_number != this->sequence_number);
       processMessageBlocks(payload_ptr, message_count);
+      this->sequence_number += message_count;
 
       header_ptr++;
       payload_ptr += MAX_MSG_SIZE;
@@ -323,7 +324,6 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
 
     (this->*handlers[block.type])(block);
 
-    sequence_number++;
     buffer += block_length + sizeof(block.length);
   }
 }
