@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-30 15:51:09                                                
+last edited: 2025-03-30 20:08:25                                                
 
 ================================================================================*/
 
@@ -86,15 +86,16 @@ COLD int Client::createUdpSocket(void) const noexcept
   constexpr int disable = 0;
   constexpr int priority = 255;
   constexpr int recv_bufsize = SOCK_BUFSIZE;
+  constexpr char *ifname = IFNAME;
+  constexpr int ifname_len = strlen(ifname);
 
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) == -1;
   error |= setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &disable, sizeof(disable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_BUSY_POLL, &enable, sizeof(enable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_RCVBUF, &recv_bufsize, sizeof(recv_bufsize)) == -1;
-  //TODO SO_BINDTODEVICE
-  //TODO IP_MULTICAST_IF
-  //TODO SO_BUSY_POLL_BUDGET
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, ifname_len) == -1;
+  error |= setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_ALL, &disable, sizeof(disable)) == -1;
 
   CHECK_ERROR;
 
@@ -336,6 +337,7 @@ HOT void Client::handleNewOrder(const MessageBlock &block)
     return;
 
   order_book.addOrder(order_id, side, price, qty);
+  //TODO push to the strategy executor.
 }
 
 HOT void Client::handleDeletedOrder(const MessageBlock &block)
@@ -345,6 +347,7 @@ HOT void Client::handleDeletedOrder(const MessageBlock &block)
   const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
 
   order_book.removeOrder(order_id, side);
+  //TODO push to the strategy executor.
 }
 
 HOT void Client::handleExecutionNotice(const MessageBlock &block)
@@ -355,6 +358,7 @@ HOT void Client::handleExecutionNotice(const MessageBlock &block)
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
 
   order_book.executeOrder(order_id, resting_side, qty);
+  //TODO push to the strategy executor.
 }
 
 HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
@@ -366,6 +370,7 @@ HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
   const int32_t price = be32toh(execution_notice.trade_price);
 
   order_book.removeOrder(order_id, resting_side, price, qty);
+  //TODO push to the strategy executor.
 }
 
 COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
@@ -376,6 +381,7 @@ COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
   const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
 
   order_book.setEquilibrium(price, bid_qty, ask_qty);
+  //TODO push to the strategy executor.
 }
 
 HOT void Client::handleSeconds(UNUSED const MessageBlock &block)
