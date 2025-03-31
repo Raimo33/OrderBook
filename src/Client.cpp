@@ -224,19 +224,16 @@ COLD void Client::recvLogin(void)
   switch (packet.type)
   {
     case 'H':
-      printf("HB during login\n");
       recvLogin();
       break;
     case 'A':
     {
-      printf("received login acceptance\n");
       error |= recv(tcp_sock_fd, &packet.login_acceptance, sizeof(packet.login_acceptance), 0) == -1;
       CHECK_ERROR;
       sequence_number = std::stoull(packet.login_acceptance.sequence);
       break;
     }
     default:
-      printf("unexpected message type during login: %c\n", packet.type);
       panic();
   }
 }
@@ -252,12 +249,9 @@ void Client::recvSnapshot(void)
   switch (packet.type)
   {
     case 'H':
-      printf("HB during snapshot\n");
       break;
     case 'S':
     {
-      printf("received snapshot packet\n");
-
       const uint16_t payload_size = be32toh(packet.length) - sizeof(packet.type);
       std::vector<char> buffer(payload_size);
       error |= recv(tcp_sock_fd, buffer.data(), payload_size, 0) == -1;
@@ -273,7 +267,6 @@ void Client::recvSnapshot(void)
       break;
     }
     default:
-      printf("unexpected message type during snapshot: %c\n", packet.type);
       panic();
   }
 
@@ -303,6 +296,8 @@ bool Client::processMessageBlocks(const std::vector<char> &buffer)
     const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(&*it);
     const uint16_t block_length = be16toh(block.length);
 
+    printf("block length: %d\n", block_length);
+
     switch (block.type)
     {
       case 'A':
@@ -327,7 +322,7 @@ bool Client::processMessageBlocks(const std::vector<char> &buffer)
     }
 
     sequence_number++;
-    std::advance(it, block_length);
+    std::advance(it, sizeof(block.length) + block_length);
   }
 
   return false;
@@ -364,7 +359,7 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
 
     (this->*handlers[block.type])(block);
 
-    buffer += block_length + sizeof(block.length);
+    buffer += sizeof(block.length) + block_length;
   }
 }
 
