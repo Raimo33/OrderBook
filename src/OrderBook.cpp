@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-31 18:28:37                                                
+last edited: 2025-03-31 19:01:29                                                
 
 ================================================================================*/
 
@@ -78,11 +78,16 @@ HOT void OrderBook::removeOrder(std::vector<int32_t> &prices, std::vector<uint64
   auto &available_qty = *qty_it;
   available_qty -= order.qty;
 
-  if (UNLIKELY(available_qty) == 0)
-  {
-    prices.erase(price_it);
-    qtys.erase(qty_it);
-  }
+  using LevelRemover = void(*)(std::vector<int32_t>&, std::vector<uint64_t>&, std::vector<int32_t>::const_iterator, std::vector<uint64_t>::iterator);
+  constexpr LevelRemover removeLevel[] = {
+    [](std::vector<int32_t>&, std::vector<uint64_t>&, auto, auto) {},
+    [](std::vector<int32_t>& prices, std::vector<uint64_t>& qtys, auto price_it, auto qty_it) {
+      prices.erase(price_it);
+      qtys.erase(qty_it);
+    }
+  };
+
+  removeLevel[available_qty == 0](prices, qtys, price_it, qty_it);
 }
 
 HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qty)
@@ -95,11 +100,16 @@ HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qt
   auto &available_qty = qtys.back();
   available_qty -= qty;
 
-  if (UNLIKELY(available_qty == 0))
-  {
-    prices.pop_back();
-    qtys.pop_back();
-  }
+  using OrderRemover = void(*)(std::vector<int32_t>&, std::vector<uint64_t>&);
+  constexpr OrderRemover removeOrder[] = {
+    [](std::vector<int32_t> &, std::vector<uint64_t> &) {},
+    [](std::vector<int32_t> &prices, std::vector<uint64_t> &qtys) {
+      prices.pop_back();
+      qtys.pop_back();
+    }
+  };
+
+  removeOrder[available_qty == 0](prices, qtys);
 }
 
 template <typename Compare>
