@@ -72,6 +72,10 @@ COLD int Client::createTcpSocket(void) const noexcept
   error |= setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1;
 
+  //TODO remove
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == -1;
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable)) == -1;
+
   CHECK_ERROR;
 
   return sock_fd;
@@ -86,16 +90,21 @@ COLD int Client::createUdpSocket(void) const noexcept
   constexpr int disable = 0;
   constexpr int priority = 255;
   constexpr int recv_bufsize = SOCK_BUFSIZE;
-  constexpr char *ifname = IFNAME;
+  constexpr char ifname[] = IFNAME;
   constexpr int ifname_len = strlen(ifname);
 
-  error |= setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1;
+  //TODO add
+  // error |= setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_PRIORITY, &priority, sizeof(priority)) == -1;
   error |= setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &disable, sizeof(disable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_BUSY_POLL, &enable, sizeof(enable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_RCVBUF, &recv_bufsize, sizeof(recv_bufsize)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, ifname_len) == -1;
   error |= setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_ALL, &disable, sizeof(disable)) == -1;
+
+  //TODO remove
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == -1;
+  error |= setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable)) == -1;
 
   CHECK_ERROR;
 
@@ -111,15 +120,32 @@ Client::~Client(void) noexcept
 void Client::run(void)
 {
   fetchOrderbook();
+
+  printf("exiting for now\n");
+  exit(EXIT_SUCCESS);
+
   updateOrderbook();
 }
 
 COLD void Client::fetchOrderbook(void)
 {
+  printf("fetching orderbook\n");
+
   sendLogin();
+
+  printf("sent login\n");
+
   recvLogin();
+
+  printf("received login\n");
+
   recvSnapshot();
+
+  printf("received snapshot\n");
+
   sendLogout();
+
+  printf("sent logout\n");
 }
 
 HOT void Client::updateOrderbook(void)
@@ -152,9 +178,8 @@ HOT void Client::updateOrderbook(void)
     while(packets_count--)
     {
       PREFETCH_R(packet + 1, 1);
-      const MoldUDP64Header &header = packet->header;
-      const uint64_t sequence_number = be64toh(header.sequence_number);
-      const uint16_t message_count = be16toh(header.message_count);
+      const uint64_t sequence_number = be64toh(packet->header.sequence_number);
+      const uint16_t message_count = be16toh(packet->header.message_count);
 
       error |= (sequence_number != this->sequence_number);
       CHECK_ERROR;
@@ -171,18 +196,19 @@ HOT void Client::updateOrderbook(void)
 COLD void Client::sendLogin(void) const
 {
   SoupBinTCPPacket packet{};
+  constexpr uint8_t packet_length = sizeof(packet.type) + sizeof(packet.login_request);
+  constexpr uint16_t packet_size = sizeof(packet.length) + packet_length;
 
-  packet.length = sizeof(packet.type) + sizeof(packet.login_request);
+  packet.length = be16toh(packet_length);
   packet.type = 'L';
 
   auto &login = packet.login_request;
+  std::memset(&login, ' ', sizeof(login));
 
-  std::strcpy(login.username, username.data());
-  std::strcpy(login.password, password.data());
-  std::memset(login.requested_session, ' ', sizeof(login.requested_session));
+  std::strncpy(login.username, username.data(), username.size());
+  std::strncpy(login.password, password.data(), password.size());
   login.requested_sequence[0] = '1';
 
-  constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type) + sizeof(login);
   error |= send(tcp_sock_fd, &packet, packet_size, 0) == -1;
   CHECK_ERROR;
 }
@@ -198,16 +224,19 @@ COLD void Client::recvLogin(void)
   switch (packet.type)
   {
     case 'H':
+      printf("HB during login\n");
       recvLogin();
       break;
     case 'A':
     {
+      printf("received login acceptance\n");
       error |= recv(tcp_sock_fd, &packet.login_acceptance, sizeof(packet.login_acceptance), 0) == -1;
       CHECK_ERROR;
       sequence_number = std::stoull(packet.login_acceptance.sequence);
       break;
     }
     default:
+      printf("unexpected message type during login: %c\n", packet.type);
       panic();
   }
 }
@@ -223,20 +252,28 @@ void Client::recvSnapshot(void)
   switch (packet.type)
   {
     case 'H':
+      printf("HB during snapshot\n");
       break;
     case 'S':
     {
+      printf("received snapshot packet\n");
+
       const uint16_t payload_size = be32toh(packet.length) - sizeof(packet.type);
       std::vector<char> buffer(payload_size);
       error |= recv(tcp_sock_fd, buffer.data(), payload_size, 0) == -1;
       CHECK_ERROR;
 
+      printf("processing snapshot packet\n");
+
       if (UNLIKELY(processMessageBlocks(buffer)))
         return;
+
+      printf("finished processing snapshot packet\n");
       
       break;
     }
     default:
+      printf("unexpected message type during snapshot: %c\n", packet.type);
       panic();
   }
 
@@ -245,8 +282,8 @@ void Client::recvSnapshot(void)
 
 COLD void Client::sendLogout(void) const
 {
-  constexpr SoupBinTCPPacket packet = {
-    .length = 1,
+  const SoupBinTCPPacket packet = {
+    .length = be16toh(sizeof(packet.type)),
     .type = 'Z',
     .logout_request{}
   };
@@ -269,15 +306,21 @@ bool Client::processMessageBlocks(const std::vector<char> &buffer)
     switch (block.type)
     {
       case 'A':
+        printf("new order message block\n");
         handleNewOrder(block);
         break;
       case 'D':
+        printf("deleted order message block\n");
         handleDeletedOrder(block);
         break;
       case 'G':
       {
+        printf("snapshot completion message block\n");
         const uint64_t sequence_number = std::stoull(block.snapshot_completion.sequence);
         error |= (sequence_number != ++this->sequence_number);
+
+        printf("sequence mismatch??: %d\n", error);
+
         CHECK_ERROR;
         return true;
       }
