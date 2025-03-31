@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-30 20:08:25                                                
+last edited: 2025-03-31 15:01:09                                                
 
 ================================================================================*/
 
@@ -153,9 +153,9 @@ HOT void Client::updateOrderbook(void)
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
   //+1 added for safe prefetching past the last packet 
-  alignas(64) mmsghdr mmsgs[MAX_BURST_PACKETS+1]{};
-  alignas(64) iovec iov[2][MAX_BURST_PACKETS+1]{};
-  alignas(64) struct Packet {
+  alignas(CACHELINE_SIZE) mmsghdr mmsgs[MAX_BURST_PACKETS+1]{};
+  alignas(CACHELINE_SIZE) iovec iov[2][MAX_BURST_PACKETS+1]{};
+  alignas(CACHELINE_SIZE) struct Packet {
     MoldUDP64Header header;
     char payload[MAX_MSG_SIZE];
   } packets[MAX_BURST_PACKETS+1]{};

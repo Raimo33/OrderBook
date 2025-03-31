@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-30 19:04:28                                                
+last edited: 2025-03-31 15:01:09                                                
 
 ================================================================================*/
 
@@ -103,22 +103,45 @@ HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qt
 template <typename Compare>
 HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<int32_t> &prices, const int32_t price, Compare comp) const
 {
-  const size_t size = prices.size();
-  const int32_t *data = prices.data();
+  const int32_t *start = prices.data();
+  size_t remaining = prices.size();
+  const int32_t *current = start + remaining - 1;
 
-  const int32_t *current = data + size - 1;
+  static_assert(CACHELINE_SIZE <= INT8_MAX, "CACHELINE_SIZE too large");
+  static_assert(CACHELINE_SIZE % sizeof(int32_t) == 0, "CACHELINE_SIZE must be a multiple of sizeof(int32_t)");
+  static_assert(std::endian::native == std::endian::little, "Endianess not supported");
+  static_assert(std::is_same_v<Compare, std::less<int32_t>> || std::is_same_v<Compare, std::greater<int32_t>> || std::is_same_v<Compare, std::equal_to<int32_t>>, "Unsupported comparator");
+
+  uint8_t misalignment = misalignment_backwards(current, CACHELINE_SIZE);
+  misalignment -= (misalignment > remaining) * (misalignment - remaining);
+
+  while (misalignment--)
+  {
+    if (comp(*current, price))
+      return current;
+
+    --current;
+    --remaining;
+  }
 
 #if defined(__AVX512F__)
 
-  const __m512i price_vec = _mm512_set1_epi32(price);
+  //TODO rename prefetch_counter, simplify logic
 
-  while (current - data >= 16)
+  const __m512i price_vec = _mm512_set1_epi32(price);
+  constexpr int32_t prefetch_distance = CACHELINE_SIZE / sizeof(price);
+  uint8_t prefetch_counter = prefetch_distance;
+
+  while (remaining >= 16)
   {
-    const __m512i chunk = _mm512_loadu_si512(current - 16);
+    const __m512i chunk = _mm512_load_si512(current - 16);
     __mmask16 mask;
 
-    const uint8_t prefetch_offset = (current - data >= 32) * 32;
-    PREFETCH_R(current - prefetch_offset, 0);
+    if (iteration_count == prefetch_distance)
+    {
+      PREFETCH_R(current - prefetch_distance, 1);
+      prefetch_counter = 16;
+    }
 
     if constexpr (std::is_same_v<Compare, std::less<int32_t>>)
       mask = _mm512_cmplt_epi32_mask(chunk, price_vec);
@@ -130,51 +153,23 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
     if (mask != 0xFFFF)
     {
       const uint32_t mismatch_pos = _tzcnt_u32(~mask);
-      return prices.cbegin() + std::distance(data, current - 16 + mismatch_pos);
+      return current - 16 + mismatch_pos;
     }
 
     current -= 16;
-  }
-
-#elif defined(__AVX2__)
-
-  const __m256i price_vec = _mm256_set1_epi32(price);
-
-  while (current - data >= 8)
-  {
-    const __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(current - 8));
-    __m256i comp_result;
-
-    const uint8_t prefetch_offset = (current - data >= 16) * 16;
-    PREFETCH_R(current - prefetch_offset, 0);
-
-    if constexpr (std::is_same_v<Compare, std::less<int32_t>>)
-      comp_result = _mm256_cmpgt_epi32(price_vec, chunk);
-    else if constexpr (std::is_same_v<Compare, std::greater<int32_t>>)
-      comp_result = _mm256_cmpgt_epi32(chunk, price_vec);
-    else
-      comp_result = _mm256_cmpeq_epi32(chunk, price_vec);
-
-    uint64_t mask = _mm256_movemask_epi8(comp_result);
-    mask = _pext_u64(mask, 0x1111111111111111);
-
-    if (mask != 0xFF)
-    {
-      const uint32_t mismatch_pos = _tzcnt_u32(~mask);
-      return prices.cbegin() + std::distance(data, current - 8 + mismatch_pos);
-    }
-
-    current -= 8;
+    remaining -= 16;
+    prefetch_counter += 16;
   }
 
 #endif
 
-  while (current >= data)
+  while (remaining)
   {
     if (comp(*current, price))
-      return prices.cbegin() + std::distance(data, current);
+      return current;
 
     --current;
+    --remaining;
   }
 
   return prices.cend();
