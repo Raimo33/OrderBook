@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 22:29:52                                                 
-last edited: 2025-03-28 18:54:13                                                
+last edited: 2025-03-31 21:52:02                                                
 
 ================================================================================*/
 
@@ -15,49 +15,8 @@ last edited: 2025-03-28 18:54:13
 
 #pragma pack(push, 1)
 
-struct SoupBinTCPPacket
+struct MessageData
 {
-  uint16_t length;
-  char type;
-
-  union
-  {
-    struct
-    {
-      char username[6];
-      char password[10];
-      char requested_session[10];
-      char requested_sequence[20];
-    } login_request;
-
-    struct
-    {
-      char session[10];
-      char sequence[20];
-    } login_acceptance;
-
-    struct
-    {
-      char reject_reason_code;
-    } login_reject;
-
-    struct {} sequenced_data;
-    struct {} server_heartbeat;
-    struct {} client_heartbeat;
-    struct {} logout_request;
-  };
-};
-
-struct MoldUDP64Header
-{
-  char session[10];
-  uint64_t sequence_number;
-  uint16_t message_count;
-};
-
-struct MessageBlock
-{
-  uint16_t length;
   char type;
 
   union
@@ -117,14 +76,14 @@ struct MessageBlock
     {
       uint32_t timestamp_nanoseconds;
       char event_code;
-    } system_event_data;
+    } system_event;
 
     struct
     {
       uint32_t timestamp_nanoseconds;
       uint32_t orderbook_id;
       char state_name[20];
-    } trading_status_data;
+    } trading_status;
 
     struct
     {
@@ -189,6 +148,52 @@ struct MessageBlock
       char reserved4[8];
     } ep;
   };
+};
+
+struct SoupBinTCPPacket
+{
+  uint16_t length;
+  char type;
+
+  union
+  {
+    struct
+    {
+      char username[6];
+      char password[10];
+      char requested_session[10];
+      char requested_sequence[20];
+    } login_request;
+
+    struct
+    {
+      char session[10];
+      char sequence[20];
+    } login_acceptance;
+
+    struct
+    {
+      char reject_reason_code;
+    } login_reject;
+
+    struct {} sequenced_data;
+    struct {} server_heartbeat;
+    struct {} client_heartbeat;
+    struct {} logout_request;
+  };
+};
+
+struct MoldUDP64Header
+{
+  char session[10];
+  uint64_t sequence_number;
+  uint16_t message_count;
+};
+
+struct MessageBlock
+{
+  uint16_t length;
+  MessageData data;
 };
 
 #pragma pack(pop)

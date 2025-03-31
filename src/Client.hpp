@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-03-31 20:01:59                                                
+last edited: 2025-03-31 21:52:02                                                
 
 ================================================================================*/
 
@@ -43,21 +43,22 @@ class Client
     void recvSnapshot(void);
     void sendLogout(void) const;
 
-    uint16_t processMessageBlocks(const std::vector<char> &buffer);
-    uint16_t processMessageBlocks(const char *restrict buffer, uint16_t blocks_count);
+    void processSnapshot(const std::vector<char> &buffer);
+    void processMessageBlocks(const char *restrict buffer, uint16_t blocks_count);
+    void processMessageData(const MessageData &data);
     
-    void handleSnapshotCompletion(const MessageBlock &block);
-    void handleNewOrder(const MessageBlock &block);
-    void handleDeletedOrder(const MessageBlock &block);
-    void handleSeconds(const MessageBlock &block);
-    void handleSeriesInfoBasic(const MessageBlock &block);
-    void handleSeriesInfoBasicCombination(const MessageBlock &block);
-    void handleTickSizeData(const MessageBlock &block);
-    void handleSystemEvent(const MessageBlock &block);
-    void handleTradingStatus(const MessageBlock &block);
-    void handleExecutionNotice(const MessageBlock &block);
-    void handleExecutionNoticeWithTradeInfo(const MessageBlock &block);
-    void handleEquilibriumPrice(const MessageBlock &block);
+    void handleSnapshotCompletion(const MessageData &block);
+    void handleNewOrder(const MessageData &block);
+    void handleDeletedOrder(const MessageData &block);
+    void handleSeconds(const MessageData &block);
+    void handleSeriesInfoBasic(const MessageData &block);
+    void handleSeriesInfoBasicCombination(const MessageData &block);
+    void handleTickSizeData(const MessageData &block);
+    void handleSystemEvent(const MessageData &block);
+    void handleTradingStatus(const MessageData &block);
+    void handleExecutionNotice(const MessageData &block);
+    void handleExecutionNoticeWithTradeInfo(const MessageData &block);
+    void handleEquilibriumPrice(const MessageData &block);
 
     const std::string username;
     const std::string password;
@@ -70,4 +71,5 @@ class Client
     const int tcp_sock_fd;
     const int udp_sock_fd;
     uint64_t sequence_number;
+    enum Status { FETCHING, UPDATING } status;
 };

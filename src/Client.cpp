@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-31 20:01:59                                                
+last edited: 2025-03-31 21:52:02                                                
 
 ================================================================================*/
 
@@ -32,7 +32,8 @@ COLD Client::Client(const std::string_view username, const std::string_view pass
   bind_address_udp(createAddress(BIND_IP, MULTICAST_PORT)),
   tcp_sock_fd(createTcpSocket()),
   udp_sock_fd(createUdpSocket()),
-  sequence_number(0)
+  sequence_number(0),
+  status(FETCHING)
 {
   error |= bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp)) == -1;
   error |= bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp)) == -1;
@@ -131,7 +132,7 @@ COLD void Client::fetchOrderbook(void)
 {
   sendLogin();
   recvLogin();
-  while (//TODO status != orderbook fetched)
+  while (status == FETCHING)
     recvSnapshot();
 
   printf("received snapshot\n");
@@ -250,7 +251,7 @@ COLD void Client::recvSnapshot(void)
       CHECK_ERROR;
 
       printf("processing snapshot packet\n");
-      sequence_number += processMessageBlocks(buffer);
+      processSnapshot(buffer);
       printf("finished processing snapshot packet\n");
       
       break;
@@ -273,53 +274,59 @@ COLD void Client::sendLogout(void) const
   CHECK_ERROR;
 }
 
-COLD uint16_t Client::processMessageBlocks(const std::vector<char> &buffer)
+COLD void Client::processSnapshot(const std::vector<char> &buffer)
 {
-  using MessageHandler = void (Client::*)(const MessageBlock &);
+  const char *it = buffer.data();
+  const char *const end = it + buffer.size();
 
   constexpr uint8_t size = 'Z' + 1;
-  constexpr std::array<MessageHandler, size> handlers = []()
+  constexpr std::array<uint16_t, size> lenghts = []()
   {
-    std::array<MessageHandler, size> handlers{};
-    handlers['A'] = &Client::handleNewOrder;
-    handlers['D'] = &Client::handleDeletedOrder;
-    handlers['T'] = &Client::handleSeconds;
-    handlers['R'] = &Client::handleSeriesInfoBasic;
-    handlers['M'] = &Client::handleSeriesInfoBasicCombination;
-    handlers['L'] = &Client::handleTickSizeData;
-    handlers['S'] = &Client::handleSystemEvent;
-    handlers['O'] = &Client::handleTradingStatus;
-    handlers['E'] = &Client::handleExecutionNotice;
-    handlers['C'] = &Client::handleExecutionNoticeWithTradeInfo;
-    handlers['Z'] = &Client::handleEquilibriumPrice;
-    handlers['G'] = &Client::handleSnapshotCompletion;
-    return handlers;
+    std::array<uint16_t, size> lenghts{};
+    lenghts['A'] = sizeof(MessageData::new_order);
+    lenghts['D'] = sizeof(MessageData::deleted_order);
+    lenghts['T'] = sizeof(MessageData::seconds);
+    lenghts['R'] = sizeof(MessageData::series_info_basic);
+    lenghts['M'] = sizeof(MessageData::series_info_basic_combination);
+    lenghts['L'] = sizeof(MessageData::tick_size_data);
+    lenghts['S'] = sizeof(MessageData::system_event);
+    lenghts['O'] = sizeof(MessageData::trading_status);
+    lenghts['E'] = sizeof(MessageData::execution_notice);
+    lenghts['C'] = sizeof(MessageData::execution_notice_with_trade_info);
+    lenghts['Z'] = sizeof(MessageData::ep);
+    lenghts['G'] = sizeof(MessageData::snapshot_completion);
+    return lenghts;
   }();
-
-  const char *it = buffer.data();
-  const char *end = it + buffer.size();
-
-  uint16_t blocks_count = 0;
 
   while (it != end)
   {
-    const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(it);
-    const uint16_t block_length = be16toh(block.length);
+    const MessageData &data = *reinterpret_cast<const MessageData *>(it);
+    const char type = data.type;
+    const uint16_t length = lenghts[type];
 
-    PREFETCH_R(it + block_length + sizeof(block.length), 3);
-
-    (this->*handlers[block.type])(block);
-
-    it += sizeof(block.length) + block_length;
-    blocks_count++;
+    PREFETCH_R(it + length, 3);
+    processMessageData(data);
+    sequence_number++;
+    it += length;
   }
-
-  return blocks_count;
 }
 
-HOT uint16_t Client::processMessageBlocks(const char *restrict buffer, uint16_t blocks_count)
+HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t blocks_count)
 {
-  using MessageHandler = void (Client::*)(const MessageBlock &);
+  while (blocks_count--)
+  {
+    const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(buffer);
+    const uint16_t data_length = be16toh(block.length);
+
+    PREFETCH_R(buffer + sizeof(block.length) + data_length, 3);
+    processMessageData(block.data);
+    buffer += sizeof(block.length) + data_length;
+  }
+}
+
+HOT void Client::processMessageData(const MessageData &data)
+{
+  using MessageHandler = void (Client::*)(const MessageData &);
 
   constexpr uint8_t size = 'Z' + 1;
   constexpr std::array<MessageHandler, size> handlers = []()
@@ -340,32 +347,21 @@ HOT uint16_t Client::processMessageBlocks(const char *restrict buffer, uint16_t 
     return handlers;
   }();
 
-  uint16_t n = blocks_count;
-
-  while (n--)
-  {
-    const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(buffer);
-    const uint16_t block_length = be16toh(block.length);
-
-    PREFETCH_R(buffer + block_length + sizeof(block.length), 3);
-
-    (this->*handlers[block.type])(block);
-
-    buffer += sizeof(block.length) + block_length;
-  }
-
-  return blocks_count;
+  (this->*handlers[data.type])(data);
 }
 
-COLD void Client::handleSnapshotCompletion(const MessageBlock &block)
+COLD void Client::handleSnapshotCompletion(const MessageData &block)
 {
   const auto &snapshot_completion = block.snapshot_completion;
-  
-  const uint64_t sequence_number = std::stoull(block.snapshot_completion.sequence);
+
+  const uint64_t sequence_number = std::stoull(snapshot_completion.sequence);
   error |= (this->sequence_number != sequence_number - 1); //TODO maybe without -1;
+  CHECK_ERROR;
+
+  status = UPDATING;
 }
 
-HOT void Client::handleNewOrder(const MessageBlock &block)
+HOT void Client::handleNewOrder(const MessageData &block)
 {
   const auto &new_order = block.new_order;
   const uint64_t order_id = be64toh(new_order.order_id);
@@ -380,7 +376,7 @@ HOT void Client::handleNewOrder(const MessageBlock &block)
   //TODO push to the strategy executor.
 }
 
-HOT void Client::handleDeletedOrder(const MessageBlock &block)
+HOT void Client::handleDeletedOrder(const MessageData &block)
 {
   const auto &deleted_order = block.deleted_order;
   const uint64_t order_id = be64toh(deleted_order.order_id);
@@ -390,7 +386,7 @@ HOT void Client::handleDeletedOrder(const MessageBlock &block)
   //TODO push to the strategy executor.
 }
 
-HOT void Client::handleExecutionNotice(const MessageBlock &block)
+HOT void Client::handleExecutionNotice(const MessageData &block)
 {
   const auto &execution_notice = block.execution_notice;
   const uint64_t order_id = be64toh(execution_notice.order_id);
@@ -401,7 +397,7 @@ HOT void Client::handleExecutionNotice(const MessageBlock &block)
   //TODO push to the strategy executor.
 }
 
-HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
+HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &block)
 {
   const auto &execution_notice = block.execution_notice_with_trade_info;
   const uint64_t order_id = be64toh(execution_notice.order_id);
@@ -413,7 +409,7 @@ HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageBlock &block)
   //TODO push to the strategy executor.
 }
 
-COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
+COLD void Client::handleEquilibriumPrice(const MessageData &block)
 {
   const auto &equilibrium_price = block.ep;
   const int32_t price = be32toh(equilibrium_price.equilibrium_price);
@@ -424,27 +420,27 @@ COLD void Client::handleEquilibriumPrice(const MessageBlock &block)
   //TODO push to the strategy executor.
 }
 
-HOT void Client::handleSeconds(UNUSED const MessageBlock &block)
+HOT void Client::handleSeconds(UNUSED const MessageData &block)
 {
 }
 
-COLD void Client::handleSeriesInfoBasic(UNUSED const MessageBlock &block)
+COLD void Client::handleSeriesInfoBasic(UNUSED const MessageData &block)
 {
 }
 
-COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageBlock &block)
+COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageData &block)
 {
 }
 
-COLD void Client::handleTickSizeData(UNUSED const MessageBlock &block)
+COLD void Client::handleTickSizeData(UNUSED const MessageData &block)
 {
 }
 
-COLD void Client::handleSystemEvent(UNUSED const MessageBlock &block)
+COLD void Client::handleSystemEvent(UNUSED const MessageData &block)
 {
 }
 
-COLD void Client::handleTradingStatus(UNUSED const MessageBlock &block)
+COLD void Client::handleTradingStatus(UNUSED const MessageData &block)
 {
   //"M_ZARABA", "A_ZARABA_E", "A_ZARABA_E2", "N_ZARABA", "A_ZARABA"
   // if (status[2] == 'Z')
