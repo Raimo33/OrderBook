@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-31 17:29:45                                                
+last edited: 2025-03-31 18:27:58                                                
 
 ================================================================================*/
 
@@ -109,72 +109,83 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
   size_t remaining = prices.size();
   const int32_t *current = start + remaining - 1;
   constexpr Compare comp;
+  bool keep_looking = true;
 
-  static_assert(CACHELINE_SIZE <= INT8_MAX, "CACHELINE_SIZE too large");
-  static_assert(CACHELINE_SIZE % sizeof(int32_t) == 0, "CACHELINE_SIZE must be a multiple of sizeof(int32_t)");
+  PREFETCH_R(current, 0);
+  const bool safe = (remaining >= 16);
+  PREFETCH_R(current - 16 * safe, 0);
+
+  static_assert(CACHELINE_SIZE / sizeof(price) == 16, "unexpected CACHELINE_SIZE, prefetching not synchronized");
   static_assert(std::endian::native == std::endian::little, "Endianess not supported");
 
   uint8_t misalignment = misalignment_backwards(current, CACHELINE_SIZE);
   misalignment -= (misalignment > remaining) * (misalignment - remaining);
+  remaining -= misalignment;
 
-  while (misalignment--)
+  keep_looking = (misalignment > 0);
+  while (keep_looking)
   {
-    if (comp(*current, price))
-      return prices.cbegin() + remaining;
+    keep_looking = comp(price, *current);
 
     --current;
-    --remaining;
+    --misalignment;
+
+    keep_looking &= (misalignment > 0);
   }
 
+  if (LIKELY(misalignment > 0))
+    return prices.cbegin() + misalignment;
+
 #if defined(__AVX512F__)
-
-  //TODO rename prefetch_counter, simplify logic
-
   const __m512i price_vec = _mm512_set1_epi32(price);
-  constexpr int32_t prefetch_distance = CACHELINE_SIZE / sizeof(price);
-  uint8_t prefetch_counter = prefetch_distance;
+  __mmask16 mask = 0xFFFF;
 
-  while (remaining >= 16)
+  keep_looking = (remaining >= 16);
+  while (keep_looking)
   {
     const __m512i chunk = _mm512_load_si512(current - 16);
-    __mmask16 mask;
 
-    if (iteration_count == prefetch_distance)
-    {
-      PREFETCH_R(current - prefetch_distance, 1);
-      prefetch_counter = 16;
-    }
+    const bool safe = (remaining >= 32);
+    PREFETCH_R(current - 32 * safe, 0);
 
     if constexpr (std::is_same_v<Compare, std::less<int32_t>>)
       mask = _mm512_cmplt_epi32_mask(chunk, price_vec);
     else if constexpr (std::is_same_v<Compare, std::greater<int32_t>>)
       mask = _mm512_cmpgt_epi32_mask(chunk, price_vec);
     else if constexpr (std::is_same_v<Compare, std::equal_to<int32_t>>)
-      mask = _mm512_cmpeq_epi32_mask(chunk, price_vec);
+      mask = _mm512_cmpneq_epi32_mask(chunk, price_vec);
     else
       static_assert(false, "Unsupported comparison type");
 
-    if (mask != 0xFFFF)
-    {
-      const uint32_t mismatch_pos = _tzcnt_u32(~mask);
-      return prices.cbegin() + (remaining - 16 + mismatch_pos);
-    }
-
     current -= 16;
     remaining -= 16;
-    prefetch_counter += 16;
+
+    keep_looking = (mask == 0xFFFF);
+    keep_looking &= (remaining >= 16);
   }
 
+  if (LIKELY(mask != 0xFFFF))
+  {
+    const uint32_t mismatch_pos = _tzcnt_u32(~mask);
+    return prices.cbegin() + (remaining + mismatch_pos);
+  }
 #endif
 
-  while (remaining)
+  PREFETCH_R(start, 0);
+
+  keep_looking = (remaining > 0);
+  while (keep_looking)
   {
-    if (comp(*current, price))
-      return prices.cbegin() + remaining;
+    keep_looking = comp(price, *current);
 
     --current;
     --remaining;
+
+    keep_looking &= (remaining > 0);
   }
+
+  if (LIKELY(remaining > 0))
+    return prices.cbegin() + remaining;
 
   return prices.cend();
 }
