@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-03-30 15:51:09                                                
+last edited: 2025-03-31 20:01:59                                                
 
 ================================================================================*/
 
@@ -43,9 +43,10 @@ class Client
     void recvSnapshot(void);
     void sendLogout(void) const;
 
-    bool processMessageBlocks(const std::vector<char> &buffer);
-    void processMessageBlocks(const char *restrict buffer, uint16_t blocks_count);
-
+    uint16_t processMessageBlocks(const std::vector<char> &buffer);
+    uint16_t processMessageBlocks(const char *restrict buffer, uint16_t blocks_count);
+    
+    void handleSnapshotCompletion(const MessageBlock &block);
     void handleNewOrder(const MessageBlock &block);
     void handleDeletedOrder(const MessageBlock &block);
     void handleSeconds(const MessageBlock &block);
