@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-03-30 19:04:28                                                
+last edited: 2025-03-31 17:29:45                                                
 
 ================================================================================*/
 
@@ -50,7 +50,7 @@ class OrderBook
     void removeOrder(std::vector<int32_t> &prices, std::vector<uint64_t> &qtys, const BookEntry &order);
 
     template <typename Compare>
-    std::vector<int32_t>::const_iterator findPrice(const std::vector<int32_t> &prices, const int32_t price, Compare comp) const;
+    std::vector<int32_t>::const_iterator findPrice(const std::vector<int32_t> &prices, const int32_t price) const;
 
     ska::flat_hash_map<uint64_t, BookEntry> orders;
 

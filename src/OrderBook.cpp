@@ -5,11 +5,12 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-31 15:01:09                                                
+last edited: 2025-03-31 17:29:45                                                
 
 ================================================================================*/
 
 #include <immintrin.h>
+#include <variant>
 
 #include "OrderBook.hpp"
 #include "macros.hpp"
@@ -34,12 +35,13 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t p
 
   orders.emplace(id, BookEntry{price, qty});
 
-  constexpr bool (*comparators[])(const int32_t, const int32_t) = {
-    [](const int32_t a, const int32_t b) { return a < b; },
-    [](const int32_t a, const int32_t b) { return a > b; }
+  using FindPriceFunc = std::vector<int32_t>::const_iterator (OrderBook::*)(const std::vector<int32_t>&, const int32_t) const;
+  static const FindPriceFunc findPrice_funcs[] = {
+    &OrderBook::findPrice<std::less<int32_t>>,
+    &OrderBook::findPrice<std::greater<int32_t>>
   };
 
-  const auto price_it = findPrice(prices, price, comparators[side]);
+  const auto price_it = (this->*findPrice_funcs[side])(prices, price);
   const auto qty_it = qtys.begin() + std::distance(prices.cbegin(), price_it);
 
   if (LIKELY(price_it != prices.end()) && (*price_it == price))
@@ -70,7 +72,7 @@ HOT void OrderBook::removeOrder(const uint64_t id, const Side side, const int32_
 
 HOT void OrderBook::removeOrder(std::vector<int32_t> &prices, std::vector<uint64_t> &qtys, const BookEntry &order)
 {
-  const auto price_it = findPrice(prices, order.price, std::not_equal_to<int32_t>());
+  const auto price_it = findPrice<std::equal_to<int32_t>>(prices, order.price);
   const auto qty_it = qtys.begin() + std::distance(prices.cbegin(), price_it);
 
   auto &available_qty = *qty_it;
@@ -101,16 +103,16 @@ HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qt
 }
 
 template <typename Compare>
-HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<int32_t> &prices, const int32_t price, Compare comp) const
+HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<int32_t> &prices, const int32_t price) const
 {
   const int32_t *start = prices.data();
   size_t remaining = prices.size();
   const int32_t *current = start + remaining - 1;
+  constexpr Compare comp;
 
   static_assert(CACHELINE_SIZE <= INT8_MAX, "CACHELINE_SIZE too large");
   static_assert(CACHELINE_SIZE % sizeof(int32_t) == 0, "CACHELINE_SIZE must be a multiple of sizeof(int32_t)");
   static_assert(std::endian::native == std::endian::little, "Endianess not supported");
-  static_assert(std::is_same_v<Compare, std::less<int32_t>> || std::is_same_v<Compare, std::greater<int32_t>> || std::is_same_v<Compare, std::equal_to<int32_t>>, "Unsupported comparator");
 
   uint8_t misalignment = misalignment_backwards(current, CACHELINE_SIZE);
   misalignment -= (misalignment > remaining) * (misalignment - remaining);
@@ -118,7 +120,7 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
   while (misalignment--)
   {
     if (comp(*current, price))
-      return current;
+      return prices.cbegin() + remaining;
 
     --current;
     --remaining;
@@ -147,13 +149,15 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
       mask = _mm512_cmplt_epi32_mask(chunk, price_vec);
     else if constexpr (std::is_same_v<Compare, std::greater<int32_t>>)
       mask = _mm512_cmpgt_epi32_mask(chunk, price_vec);
-    else
+    else if constexpr (std::is_same_v<Compare, std::equal_to<int32_t>>)
       mask = _mm512_cmpeq_epi32_mask(chunk, price_vec);
+    else
+      static_assert(false, "Unsupported comparison type");
 
     if (mask != 0xFFFF)
     {
       const uint32_t mismatch_pos = _tzcnt_u32(~mask);
-      return current - 16 + mismatch_pos;
+      return prices.cbegin() + (remaining - 16 + mismatch_pos);
     }
 
     current -= 16;
@@ -166,7 +170,7 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
   while (remaining)
   {
     if (comp(*current, price))
-      return current;
+      return prices.cbegin() + remaining;
 
     --current;
     --remaining;
