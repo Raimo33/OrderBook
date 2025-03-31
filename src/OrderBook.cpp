@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-03-31 18:27:58                                                
+last edited: 2025-03-31 18:28:37                                                
 
 ================================================================================*/
 
@@ -160,8 +160,8 @@ HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<
     current -= 16;
     remaining -= 16;
 
-    keep_looking = (mask == 0xFFFF);
-    keep_looking &= (remaining >= 16);
+    keep_looking = (remaining >= 16);
+    keep_looking &= (mask == 0xFFFF);
   }
 
   if (LIKELY(mask != 0xFFFF))
