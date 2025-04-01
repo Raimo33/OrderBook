@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-30 15:01:52                                                 
-last edited: 2025-03-30 20:08:25                                                
+last edited: 2025-04-01 19:30:34                                                
 
 ================================================================================*/
 
@@ -23,3 +23,6 @@ last edited: 2025-03-30 20:08:25
 #define SOCK_BUFSIZE 8388608
 #define MAX_BURST_PACKETS 32
 #define IFNAME "enp43s0f0np0"
+
+#define SYMBOLS "AAPL,AMZN,GOOG,MSFT"
+#define SYMBOL_COUNT 4

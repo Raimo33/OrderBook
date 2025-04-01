@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-03-31 17:29:45                                                
+last edited: 2025-04-01 19:30:34                                                
 
 ================================================================================*/
 
@@ -22,10 +22,10 @@ last edited: 2025-03-31 17:29:45
 class OrderBook
 {
   public:
-    OrderBook(void);
+    OrderBook(const uint32_t id, const std::string_view symbol) noexcept;
     ~OrderBook(void);
 
-    enum Side { BID = 0, ASK = 1 };
+    enum Side : char { BID = 'B', ASK = 'S' };
 
     typedef struct 
     {
@@ -47,16 +47,15 @@ class OrderBook
 
   private:
 
+    template <typename Compare> std::vector<int32_t>::const_iterator findPrice(const std::vector<int32_t> &prices, const int32_t price) const;
     void removeOrder(std::vector<int32_t> &prices, std::vector<uint64_t> &qtys, const BookEntry &order);
 
-    template <typename Compare>
-    std::vector<int32_t>::const_iterator findPrice(const std::vector<int32_t> &prices, const int32_t price) const;
+    const uint32_t id;
+    const std::string symbol;
 
     ska::flat_hash_map<uint64_t, BookEntry> orders;
-
     std::vector<int32_t> price_arrays[2];
     std::vector<uint64_t> qty_arrays[2];
-
     int32_t equilibrium_price;
     uint64_t equilibrium_bid_qty;
     uint64_t equilibrium_ask_qty;

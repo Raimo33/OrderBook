@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-01 18:23:00                                                
+last edited: 2025-04-01 19:30:34                                                
 
 ================================================================================*/
 
@@ -22,9 +22,9 @@ last edited: 2025-04-01 18:23:00
 #include "error.hpp"
 
 COLD Client::Client(const std::string_view username, const std::string_view password) noexcept :
+  order_books(),
   username(username),
   password(password),
-  order_book(),
   glimpse_address(createAddress(GLIMPSE_IP, GLIMPSE_PORT)),
   multicast_address(createAddress(MULTICAST_IP, MULTICAST_PORT)),
   rewind_address(createAddress(REWIND_IP, REWIND_PORT)),
@@ -120,15 +120,15 @@ Client::~Client(void) noexcept
 
 void Client::run(void)
 {
-  fetchOrderbook();
+  fetchOrderbooks();
 
   printf("exiting for now\n");
   exit(EXIT_SUCCESS);
 
-  updateOrderbook();
+  updateOrderbooks();
 }
 
-COLD void Client::fetchOrderbook(void)
+COLD void Client::fetchOrderbooks(void)
 {
   sendLogin();
   recvLogin();
@@ -137,7 +137,7 @@ COLD void Client::fetchOrderbook(void)
   sendLogout();
 }
 
-HOT void Client::updateOrderbook(void)
+HOT void Client::updateOrderbooks(void)
 {
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
@@ -353,68 +353,78 @@ COLD void Client::handleSnapshotCompletion(const MessageData &data)
 HOT void Client::handleNewOrder(const MessageData &data)
 {
   const auto &new_order = data.new_order;
+  const uint32_t book_id = be32toh(new_order.orderbook_id);
   const uint64_t order_id = be64toh(new_order.order_id);
-  const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
+  const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side);
   const int32_t price = be32toh(new_order.price);
   const uint64_t qty = be64toh(new_order.quantity);
 
   if (price == INT32_MIN)
     return;
 
-  order_book.addOrder(order_id, side, price, qty);
-  //TODO push to the strategy executor.
+  //TODO match the specific orderbook, switch case? know the id in advance
+  addOrder(order_id, side, price, qty);
 }
 
 HOT void Client::handleDeletedOrder(const MessageData &data)
 {
   const auto &deleted_order = data.deleted_order;
+  const uint32_t book_id = be32toh(deleted_order.orderbook_id);
   const uint64_t order_id = be64toh(deleted_order.order_id);
-  const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
+  const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side);
 
-  order_book.removeOrder(order_id, side);
-  //TODO push to the strategy executor.
+  //TODO match the specific orderbook, switch case? know the id in advance
+  removeOrder(order_id, side);
 }
 
 HOT void Client::handleExecutionNotice(const MessageData &data)
 {
   const auto &execution_notice = data.execution_notice;
+  const uint32_t book_id = be32toh(execution_notice.orderbook_id);
   const uint64_t order_id = be64toh(execution_notice.order_id);
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
+  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side);
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
 
-  order_book.executeOrder(order_id, resting_side, qty);
-  //TODO push to the strategy executor.
+  //TODO match the specific orderbook, switch case? know the id in advance
+  executeOrder(order_id, resting_side, qty);
 }
 
 HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
 {
   const auto &execution_notice = data.execution_notice_with_trade_info;
+  const uint32_t book_id = be32toh(execution_notice.orderbook_id);
   const uint64_t order_id = be64toh(execution_notice.order_id);
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
+  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side);
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
   const int32_t price = be32toh(execution_notice.trade_price);
 
-  order_book.removeOrder(order_id, resting_side, price, qty);
-  //TODO push to the strategy executor.
+  //TODO match the specific orderbook, switch case? know the id in advance
+  removeOrder(order_id, resting_side, price, qty);
 }
 
 COLD void Client::handleEquilibriumPrice(const MessageData &data)
 {
   const auto &equilibrium_price = data.ep;
+  const uint32_t book_id = be32toh(equilibrium_price.orderbook_id);
   const int32_t price = be32toh(equilibrium_price.equilibrium_price);
   const uint64_t bid_qty = be64toh(equilibrium_price.available_bid_quantity);
   const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
 
-  order_book.setEquilibrium(price, bid_qty, ask_qty);
-  //TODO push to the strategy executor.
+  //TODO match the specific orderbook, switch case? know the id in advance
+  setEquilibrium(price, bid_qty, ask_qty);
 }
 
 HOT void Client::handleSeconds(UNUSED const MessageData &data)
 {
 }
 
-COLD void Client::handleSeriesInfoBasic(UNUSED const MessageData &data)
+COLD void Client::handleSeriesInfoBasic(const MessageData &data)
 {
+  const uint32_t book_id = be32toh(data.series_info_basic.orderbook_id);
+  const char *const symbol = data.series_info_basic.symbol;
+
+  //TODO create orderbook object if not already present. compare with the configured tickers to track
+
 }
 
 COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageData &data)

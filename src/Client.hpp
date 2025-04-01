@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-01 16:10:05                                                
+last edited: 2025-04-01 19:30:34                                                
 
 ================================================================================*/
 
@@ -15,11 +15,11 @@ last edited: 2025-04-01 16:10:05
 #include <string>
 #include <string_view>
 #include <netinet/in.h>
-#include <memory>
-#include <chrono>
+#include <ska/flat_hash_map.hpp>
 
 #include "OrderBook.hpp"
 #include "Packets.hpp"
+#include "config.hpp"
 
 class Client
 {
@@ -35,8 +35,8 @@ class Client
     int createTcpSocket(void) const noexcept;
     int createUdpSocket(void) const noexcept;
 
-    void fetchOrderbook(void);
-    void updateOrderbook(void);
+    void fetchOrderbooks(void);
+    void updateOrderbooks(void);
 
     void sendLogin(void) const;
     void recvLogin(void);
@@ -60,9 +60,9 @@ class Client
     void handleExecutionNoticeWithTradeInfo(const MessageData &data);
     void handleEquilibriumPrice(const MessageData &data);
 
+    std::array<OrderBook, SYMBOL_COUNT> order_books;
     const std::string username;
     const std::string password;
-    OrderBook order_book;
     const sockaddr_in glimpse_address;
     const sockaddr_in multicast_address;
     const sockaddr_in rewind_address;
