@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-03-31 21:52:02                                                
+last edited: 2025-04-01 16:10:05                                                
 
 ================================================================================*/
 
@@ -33,7 +33,7 @@ COLD Client::Client(const std::string_view username, const std::string_view pass
   tcp_sock_fd(createTcpSocket()),
   udp_sock_fd(createUdpSocket()),
   sequence_number(0),
-  status(FETCHING)
+  status(CONNECTING)
 {
   error |= bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp)) == -1;
   error |= bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp)) == -1;
@@ -57,7 +57,7 @@ COLD sockaddr_in Client::createAddress(const std::string_view ip_str, const std:
 
   address.sin_addr.s_addr = inet_addr(ip);
   address.sin_family = AF_INET;
-  address.sin_port = be16toh(port);
+  address.sin_port = htobe16(port);
 
   return address;
 }
@@ -134,7 +134,6 @@ COLD void Client::fetchOrderbook(void)
   recvLogin();
   while (status == FETCHING)
     recvSnapshot();
-
   printf("received snapshot\n");
   sendLogout();
   printf("sent logout\n");
@@ -188,18 +187,17 @@ HOT void Client::updateOrderbook(void)
 COLD void Client::sendLogin(void) const
 {
   SoupBinTCPPacket packet{};
-  constexpr uint8_t packet_length = sizeof(packet.type) + sizeof(packet.login_request);
-  constexpr uint16_t packet_size = sizeof(packet.length) + packet_length;
+  auto &body = packet.body;
+  constexpr uint8_t body_length = sizeof(body.type) + sizeof(body.login_request);
+  constexpr uint16_t packet_size = sizeof(packet.body_length) + body_length;
 
-  packet.length = be16toh(packet_length);
-  packet.type = 'L';
+  packet.body_length = htobe16(body_length);
 
-  auto &login = packet.login_request;
-  std::memset(&login, ' ', sizeof(login));
-
-  std::strncpy(login.username, username.data(), username.size());
-  std::strncpy(login.password, password.data(), password.size());
-  login.requested_sequence[0] = '1';
+  body.type = 'L';
+  std::memset(&body.login_request, ' ', sizeof(body.login_request));
+  std::strncpy(body.login_request.username, username.data(), username.size());
+  std::strncpy(body.login_request.password, password.data(), password.size());
+  body.login_request.requested_sequence[0] = '1';
 
   error |= send(tcp_sock_fd, &packet, packet_size, 0) == -1;
   CHECK_ERROR;
@@ -208,55 +206,52 @@ COLD void Client::sendLogin(void) const
 COLD void Client::recvLogin(void)
 {
   SoupBinTCPPacket packet{};
-  constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
 
-  error |= recv(tcp_sock_fd, &packet, header_size, 0) == -1;
+  error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), 0) == -1;
+  const uint16_t body_length = be16toh(packet.body_length);
+  error |= recv(tcp_sock_fd, &packet.body, body_length, 0) == -1;
+
   CHECK_ERROR;
 
-  switch (packet.type)
+  switch (packet.body.type)
   {
     case 'H':
       recvLogin();
       break;
     case 'A':
-    {
-      error |= recv(tcp_sock_fd, &packet.login_acceptance, sizeof(packet.login_acceptance), 0) == -1;
-      CHECK_ERROR;
-      sequence_number = std::stoull(packet.login_acceptance.sequence);
+      sequence_number = std::stoull(packet.body.login_acceptance.sequence);
+      status = FETCHING;
       break;
-    }
     default:
+      printf("login rejected: %c\n", packet.body.type);
       panic();
   }
 }
 
 COLD void Client::recvSnapshot(void)
 {
-  SoupBinTCPPacket packet{};
-  constexpr uint16_t header_size = sizeof(packet.length) + sizeof(packet.type);
+  thread_local static std::array<char, sizeof(SoupBinTCPPacket)> buffer{};
+  SoupBinTCPPacket &packet = *reinterpret_cast<SoupBinTCPPacket *>(buffer.data());
 
-  error |= recv(tcp_sock_fd, reinterpret_cast<char *>(&packet), header_size, 0) == -1;
+  error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), 0) == -1;
+  const uint16_t body_length = be16toh(packet.body_length);
+  error |= recv(tcp_sock_fd, &packet.body, body_length, 0) == -1;
+
   CHECK_ERROR;
 
-  switch (packet.type)
+  switch (packet.body.type)
   {
     case 'H':
       recvSnapshot();
       break;
     case 'S':
     {
-      const uint16_t payload_size = be32toh(packet.length) - sizeof(packet.type);
-      std::vector<char> buffer(payload_size);
-      error |= recv(tcp_sock_fd, buffer.data(), payload_size, 0) == -1;
-      CHECK_ERROR;
-
-      printf("processing snapshot packet\n");
-      processSnapshot(buffer);
-      printf("finished processing snapshot packet\n");
-      
+      const char *const payload = reinterpret_cast<const char *>(&packet.body.sequenced_data);
+      processSnapshot(payload, body_length - sizeof(packet.body.type));
       break;
     }
     default:
+      printf("unexpected packet type: %c\n", packet.body.type);
       panic();
   }
 }
@@ -264,50 +259,49 @@ COLD void Client::recvSnapshot(void)
 COLD void Client::sendLogout(void) const
 {
   const SoupBinTCPPacket packet = {
-    .length = be16toh(sizeof(packet.type)),
-    .type = 'Z',
-    .logout_request{}
+    .body_length = htobe16(1),
+    .body = {
+      .type = 'Z',
+      .logout_request{}
+    }
   };
-  constexpr uint16_t packet_size = sizeof(packet.length) + sizeof(packet.type);
+  constexpr uint16_t packet_size = sizeof(packet.body_length) + sizeof(packet.body.type);
 
-  error |= send(tcp_sock_fd, reinterpret_cast<const char *>(&packet), packet_size, 0) == -1;
+  error |= send(tcp_sock_fd, &packet, packet_size, 0) == -1;
   CHECK_ERROR;
 }
 
-COLD void Client::processSnapshot(const std::vector<char> &buffer)
+COLD void Client::processSnapshot(const char *restrict buffer, const uint16_t length)
 {
-  const char *it = buffer.data();
-  const char *const end = it + buffer.size();
-
   constexpr uint8_t size = 'Z' + 1;
-  constexpr std::array<uint16_t, size> lenghts = []()
+  constexpr std::array<uint16_t, size> data_lengths = []()
   {
-    std::array<uint16_t, size> lenghts{};
-    lenghts['A'] = sizeof(MessageData::new_order);
-    lenghts['D'] = sizeof(MessageData::deleted_order);
-    lenghts['T'] = sizeof(MessageData::seconds);
-    lenghts['R'] = sizeof(MessageData::series_info_basic);
-    lenghts['M'] = sizeof(MessageData::series_info_basic_combination);
-    lenghts['L'] = sizeof(MessageData::tick_size_data);
-    lenghts['S'] = sizeof(MessageData::system_event);
-    lenghts['O'] = sizeof(MessageData::trading_status);
-    lenghts['E'] = sizeof(MessageData::execution_notice);
-    lenghts['C'] = sizeof(MessageData::execution_notice_with_trade_info);
-    lenghts['Z'] = sizeof(MessageData::ep);
-    lenghts['G'] = sizeof(MessageData::snapshot_completion);
-    return lenghts;
+    std::array<uint16_t, size> data_lengths{};
+    data_lengths['A'] = sizeof(MessageData::new_order);
+    data_lengths['D'] = sizeof(MessageData::deleted_order);
+    data_lengths['T'] = sizeof(MessageData::seconds);
+    data_lengths['R'] = sizeof(MessageData::series_info_basic);
+    data_lengths['M'] = sizeof(MessageData::series_info_basic_combination);
+    data_lengths['L'] = sizeof(MessageData::tick_size_data);
+    data_lengths['S'] = sizeof(MessageData::system_event);
+    data_lengths['O'] = sizeof(MessageData::trading_status);
+    data_lengths['E'] = sizeof(MessageData::execution_notice);
+    data_lengths['C'] = sizeof(MessageData::execution_notice_with_trade_info);
+    data_lengths['Z'] = sizeof(MessageData::ep);
+    data_lengths['G'] = sizeof(MessageData::snapshot_completion);
+    return data_lengths;
   }();
 
-  while (it != end)
-  {
-    const MessageData &data = *reinterpret_cast<const MessageData *>(it);
-    const char type = data.type;
-    const uint16_t length = lenghts[type];
+  const char *const end = buffer + length;
 
-    PREFETCH_R(it + length, 3);
+  while (buffer < end)
+  {
+    const MessageData &data = *reinterpret_cast<const MessageData *>(buffer);
+
     processMessageData(data);
+
     sequence_number++;
-    it += length;
+    buffer += sizeof(data.type) + data_lengths[data.type];
   }
 }
 
@@ -316,11 +310,12 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
   while (blocks_count--)
   {
     const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(buffer);
-    const uint16_t data_length = be16toh(block.length);
+    const uint16_t length = sizeof(block.length) + be16toh(block.length);
 
-    PREFETCH_R(buffer + sizeof(block.length) + data_length, 3);
+    PREFETCH_R(buffer + length, 3);
     processMessageData(block.data);
-    buffer += sizeof(block.length) + data_length;
+
+    buffer += length;
   }
 }
 
@@ -350,9 +345,9 @@ HOT void Client::processMessageData(const MessageData &data)
   (this->*handlers[data.type])(data);
 }
 
-COLD void Client::handleSnapshotCompletion(const MessageData &block)
+COLD void Client::handleSnapshotCompletion(const MessageData &data)
 {
-  const auto &snapshot_completion = block.snapshot_completion;
+  const auto &snapshot_completion = data.snapshot_completion;
 
   const uint64_t sequence_number = std::stoull(snapshot_completion.sequence);
   error |= (this->sequence_number != sequence_number - 1); //TODO maybe without -1;
@@ -361,9 +356,9 @@ COLD void Client::handleSnapshotCompletion(const MessageData &block)
   status = UPDATING;
 }
 
-HOT void Client::handleNewOrder(const MessageData &block)
+HOT void Client::handleNewOrder(const MessageData &data)
 {
-  const auto &new_order = block.new_order;
+  const auto &new_order = data.new_order;
   const uint64_t order_id = be64toh(new_order.order_id);
   const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
   const int32_t price = be32toh(new_order.price);
@@ -376,9 +371,9 @@ HOT void Client::handleNewOrder(const MessageData &block)
   //TODO push to the strategy executor.
 }
 
-HOT void Client::handleDeletedOrder(const MessageData &block)
+HOT void Client::handleDeletedOrder(const MessageData &data)
 {
-  const auto &deleted_order = block.deleted_order;
+  const auto &deleted_order = data.deleted_order;
   const uint64_t order_id = be64toh(deleted_order.order_id);
   const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
 
@@ -386,9 +381,9 @@ HOT void Client::handleDeletedOrder(const MessageData &block)
   //TODO push to the strategy executor.
 }
 
-HOT void Client::handleExecutionNotice(const MessageData &block)
+HOT void Client::handleExecutionNotice(const MessageData &data)
 {
-  const auto &execution_notice = block.execution_notice;
+  const auto &execution_notice = data.execution_notice;
   const uint64_t order_id = be64toh(execution_notice.order_id);
   const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
@@ -397,9 +392,9 @@ HOT void Client::handleExecutionNotice(const MessageData &block)
   //TODO push to the strategy executor.
 }
 
-HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &block)
+HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
 {
-  const auto &execution_notice = block.execution_notice_with_trade_info;
+  const auto &execution_notice = data.execution_notice_with_trade_info;
   const uint64_t order_id = be64toh(execution_notice.order_id);
   const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
@@ -409,9 +404,9 @@ HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &block)
   //TODO push to the strategy executor.
 }
 
-COLD void Client::handleEquilibriumPrice(const MessageData &block)
+COLD void Client::handleEquilibriumPrice(const MessageData &data)
 {
-  const auto &equilibrium_price = block.ep;
+  const auto &equilibrium_price = data.ep;
   const int32_t price = be32toh(equilibrium_price.equilibrium_price);
   const uint64_t bid_qty = be64toh(equilibrium_price.available_bid_quantity);
   const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
@@ -420,27 +415,54 @@ COLD void Client::handleEquilibriumPrice(const MessageData &block)
   //TODO push to the strategy executor.
 }
 
-HOT void Client::handleSeconds(UNUSED const MessageData &block)
+HOT void Client::handleSeconds(UNUSED const MessageData &data)
+{
+  const auto &data_obj = data.seconds;
+  printf("seconds\n");
+  printf("second: %d\n", be32toh(data_obj.second));
+  printf("\n\n\n");
+}
+
+COLD void Client::handleSeriesInfoBasic(UNUSED const MessageData &data)
+{
+  const auto &data_obj = data.series_info_basic;
+  printf("series info basic\n");
+  printf("timestamp_nanoseconds: %d\n", be32toh(data_obj.timestamp_nanoseconds));
+  printf("orderbook_id: %d\n", be32toh(data_obj.orderbook_id));
+  printf("symbol: %.32s\n", data_obj.symbol);
+  printf("long_name: %.32s\n", data_obj.long_name);
+  printf("reserved: %.12s\n", data_obj.reserved);
+  printf("financial_product: %d\n", data_obj.financial_product);
+  printf("trading_currency: %.3s\n", data_obj.trading_currency);
+  printf("number_of_decimals_in_price: %d\n", be16toh(data_obj.number_of_decimals_in_price));
+  printf("number_of_decimals_in_nominal_value: %d\n", be16toh(data_obj.number_of_decimals_in_nominal_value));
+  printf("odd_lot_size: %d\n", be32toh(data_obj.odd_lot_size));
+  printf("round_lot_size: %d\n", be32toh(data_obj.round_lot_size));
+  printf("block_lot_size: %d\n", be32toh(data_obj.block_lot_size));
+  printf("nominal_value: %ld\n", be64toh(data_obj.nominal_value));
+  printf("number_of_legs: %d\n", data_obj.number_of_legs);
+  printf("underlying_orderbook_id: %d\n", be32toh(data_obj.underlying_orderbook_id));
+  printf("strike_price: %d\n", be32toh(data_obj.strike_price));
+  printf("expiration_date: %d\n", be32toh(data_obj.expiration_date));
+  printf("number_of_decimals_in_strike_price: %d\n", be16toh(data_obj.number_of_decimals_in_strike_price));
+  printf("put_or_call: %d\n", data_obj.put_or_call);
+
+  printf("\n\n\n");
+}
+
+COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageData &data)
 {
 }
 
-COLD void Client::handleSeriesInfoBasic(UNUSED const MessageData &block)
+COLD void Client::handleTickSizeData(UNUSED const MessageData &data)
 {
 }
 
-COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageData &block)
+COLD void Client::handleSystemEvent(UNUSED const MessageData &data)
 {
 }
 
-COLD void Client::handleTickSizeData(UNUSED const MessageData &block)
-{
-}
-
-COLD void Client::handleSystemEvent(UNUSED const MessageData &block)
-{
-}
-
-COLD void Client::handleTradingStatus(UNUSED const MessageData &block)
+COLD void Client::handleTradingStatus(UNUSED const MessageData &data)
 {
   //"M_ZARABA", "A_ZARABA_E", "A_ZARABA_E2", "N_ZARABA", "A_ZARABA"
   // if (status[2] == 'Z')

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 22:29:52                                                 
-last edited: 2025-03-31 21:52:02                                                
+last edited: 2025-04-01 16:10:05                                                
 
 ================================================================================*/
 
@@ -49,7 +49,7 @@ struct MessageData
       uint8_t number_of_legs;
       uint32_t underlying_orderbook_id;
       int32_t strike_price;
-      int32_t day;
+      int32_t expiration_date;
       uint16_t number_of_decimals_in_strike_price;
       uint8_t put_or_call;
     } series_info_basic;
@@ -152,35 +152,39 @@ struct MessageData
 
 struct SoupBinTCPPacket
 {
-  uint16_t length;
-  char type;
+  uint16_t body_length;
 
-  union
+  struct
   {
-    struct
-    {
-      char username[6];
-      char password[10];
-      char requested_session[10];
-      char requested_sequence[20];
-    } login_request;
+    char type;
 
-    struct
+    union
     {
-      char session[10];
-      char sequence[20];
-    } login_acceptance;
+      struct
+      {
+        char username[6];
+        char password[10];
+        char requested_session[10];
+        char requested_sequence[20];
+      } login_request;
 
-    struct
-    {
-      char reject_reason_code;
-    } login_reject;
+      struct
+      {
+        char session[10];
+        char sequence[20];
+      } login_acceptance;
 
-    struct {} sequenced_data;
-    struct {} server_heartbeat;
-    struct {} client_heartbeat;
-    struct {} logout_request;
-  };
+      struct
+      {
+        char reject_reason_code;
+      } login_reject;
+
+      struct {} sequenced_data;
+      struct {} server_heartbeat;
+      struct {} client_heartbeat;
+      struct {} logout_request;
+    };
+  } body;
 };
 
 struct MoldUDP64Header
