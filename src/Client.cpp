@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-01 16:10:05                                                
+last edited: 2025-04-01 18:23:00                                                
 
 ================================================================================*/
 
@@ -134,9 +134,7 @@ COLD void Client::fetchOrderbook(void)
   recvLogin();
   while (status == FETCHING)
     recvSnapshot();
-  printf("received snapshot\n");
   sendLogout();
-  printf("sent logout\n");
 }
 
 HOT void Client::updateOrderbook(void)
@@ -199,7 +197,7 @@ COLD void Client::sendLogin(void) const
   std::strncpy(body.login_request.password, password.data(), password.size());
   body.login_request.requested_sequence[0] = '1';
 
-  error |= send(tcp_sock_fd, &packet, packet_size, 0) == -1;
+  error |= send(tcp_sock_fd, &packet, packet_size, MSG_WAITALL) == -1;
   CHECK_ERROR;
 }
 
@@ -207,9 +205,9 @@ COLD void Client::recvLogin(void)
 {
   SoupBinTCPPacket packet{};
 
-  error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), 0) == -1;
+  error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), MSG_WAITALL) == -1;
   const uint16_t body_length = be16toh(packet.body_length);
-  error |= recv(tcp_sock_fd, &packet.body, body_length, 0) == -1;
+  error |= recv(tcp_sock_fd, &packet.body, body_length, MSG_WAITALL) == -1;
 
   CHECK_ERROR;
 
@@ -223,19 +221,18 @@ COLD void Client::recvLogin(void)
       status = FETCHING;
       break;
     default:
-      printf("login rejected: %c\n", packet.body.type);
       panic();
   }
 }
 
 COLD void Client::recvSnapshot(void)
 {
-  thread_local static std::array<char, sizeof(SoupBinTCPPacket)> buffer{};
+  thread_local static std::array<char, UINT16_MAX> buffer{};
   SoupBinTCPPacket &packet = *reinterpret_cast<SoupBinTCPPacket *>(buffer.data());
 
-  error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), 0) == -1;
+  error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), MSG_WAITALL) == -1;
   const uint16_t body_length = be16toh(packet.body_length);
-  error |= recv(tcp_sock_fd, &packet.body, body_length, 0) == -1;
+  error |= recv(tcp_sock_fd, &packet.body, body_length, MSG_WAITALL) == -1;
 
   CHECK_ERROR;
 
@@ -251,7 +248,6 @@ COLD void Client::recvSnapshot(void)
       break;
     }
     default:
-      printf("unexpected packet type: %c\n", packet.body.type);
       panic();
   }
 }
@@ -267,11 +263,11 @@ COLD void Client::sendLogout(void) const
   };
   constexpr uint16_t packet_size = sizeof(packet.body_length) + sizeof(packet.body.type);
 
-  error |= send(tcp_sock_fd, &packet, packet_size, 0) == -1;
+  error |= send(tcp_sock_fd, &packet, packet_size, MSG_WAITALL) == -1;
   CHECK_ERROR;
 }
 
-COLD void Client::processSnapshot(const char *restrict buffer, const uint16_t length)
+COLD void Client::processSnapshot(const char *restrict buffer, const uint16_t buffer_size)
 {
   constexpr uint8_t size = 'Z' + 1;
   constexpr std::array<uint16_t, size> data_lengths = []()
@@ -292,16 +288,18 @@ COLD void Client::processSnapshot(const char *restrict buffer, const uint16_t le
     return data_lengths;
   }();
 
-  const char *const end = buffer + length;
+  const char *const end = buffer + buffer_size;
 
   while (buffer < end)
   {
     const MessageData &data = *reinterpret_cast<const MessageData *>(buffer);
+    const uint16_t length = sizeof(data.type) + data_lengths[data.type];
 
+    PREFETCH_R(buffer + length, 1);
     processMessageData(data);
 
     sequence_number++;
-    buffer += sizeof(data.type) + data_lengths[data.type];
+    buffer += length;
   }
 }
 
@@ -312,7 +310,7 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
     const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(buffer);
     const uint16_t length = sizeof(block.length) + be16toh(block.length);
 
-    PREFETCH_R(buffer + length, 3);
+    PREFETCH_R(buffer + length, 1);
     processMessageData(block.data);
 
     buffer += length;
@@ -348,11 +346,7 @@ HOT void Client::processMessageData(const MessageData &data)
 COLD void Client::handleSnapshotCompletion(const MessageData &data)
 {
   const auto &snapshot_completion = data.snapshot_completion;
-
-  const uint64_t sequence_number = std::stoull(snapshot_completion.sequence);
-  error |= (this->sequence_number != sequence_number - 1); //TODO maybe without -1;
-  CHECK_ERROR;
-
+  sequence_number = std::stoull(snapshot_completion.sequence);
   status = UPDATING;
 }
 
@@ -417,37 +411,10 @@ COLD void Client::handleEquilibriumPrice(const MessageData &data)
 
 HOT void Client::handleSeconds(UNUSED const MessageData &data)
 {
-  const auto &data_obj = data.seconds;
-  printf("seconds\n");
-  printf("second: %d\n", be32toh(data_obj.second));
-  printf("\n\n\n");
 }
 
 COLD void Client::handleSeriesInfoBasic(UNUSED const MessageData &data)
 {
-  const auto &data_obj = data.series_info_basic;
-  printf("series info basic\n");
-  printf("timestamp_nanoseconds: %d\n", be32toh(data_obj.timestamp_nanoseconds));
-  printf("orderbook_id: %d\n", be32toh(data_obj.orderbook_id));
-  printf("symbol: %.32s\n", data_obj.symbol);
-  printf("long_name: %.32s\n", data_obj.long_name);
-  printf("reserved: %.12s\n", data_obj.reserved);
-  printf("financial_product: %d\n", data_obj.financial_product);
-  printf("trading_currency: %.3s\n", data_obj.trading_currency);
-  printf("number_of_decimals_in_price: %d\n", be16toh(data_obj.number_of_decimals_in_price));
-  printf("number_of_decimals_in_nominal_value: %d\n", be16toh(data_obj.number_of_decimals_in_nominal_value));
-  printf("odd_lot_size: %d\n", be32toh(data_obj.odd_lot_size));
-  printf("round_lot_size: %d\n", be32toh(data_obj.round_lot_size));
-  printf("block_lot_size: %d\n", be32toh(data_obj.block_lot_size));
-  printf("nominal_value: %ld\n", be64toh(data_obj.nominal_value));
-  printf("number_of_legs: %d\n", data_obj.number_of_legs);
-  printf("underlying_orderbook_id: %d\n", be32toh(data_obj.underlying_orderbook_id));
-  printf("strike_price: %d\n", be32toh(data_obj.strike_price));
-  printf("expiration_date: %d\n", be32toh(data_obj.expiration_date));
-  printf("number_of_decimals_in_strike_price: %d\n", be16toh(data_obj.number_of_decimals_in_strike_price));
-  printf("put_or_call: %d\n", data_obj.put_or_call);
-
-  printf("\n\n\n");
 }
 
 COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageData &data)
