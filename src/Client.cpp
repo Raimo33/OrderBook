@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-01 19:30:34                                                
+last edited: 2025-04-01 20:42:59                                                
 
 ================================================================================*/
 
@@ -362,8 +362,9 @@ HOT void Client::handleNewOrder(const MessageData &data)
   if (price == INT32_MIN)
     return;
 
-  //TODO match the specific orderbook, switch case? know the id in advance
-  addOrder(order_id, side, price, qty);
+  printf("adding order\n");
+
+  order_books[book_id]->addOrder(order_id, side, price, qty);
 }
 
 HOT void Client::handleDeletedOrder(const MessageData &data)
@@ -373,8 +374,9 @@ HOT void Client::handleDeletedOrder(const MessageData &data)
   const uint64_t order_id = be64toh(deleted_order.order_id);
   const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side);
 
-  //TODO match the specific orderbook, switch case? know the id in advance
-  removeOrder(order_id, side);
+  printf("deleting order\n");
+
+  order_books[book_id]->removeOrder(order_id, side);
 }
 
 HOT void Client::handleExecutionNotice(const MessageData &data)
@@ -385,8 +387,9 @@ HOT void Client::handleExecutionNotice(const MessageData &data)
   const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side);
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
 
-  //TODO match the specific orderbook, switch case? know the id in advance
-  executeOrder(order_id, resting_side, qty);
+  printf("executing order\n");
+
+  order_books[book_id]->executeOrder(order_id, resting_side, qty);
 }
 
 HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
@@ -398,8 +401,9 @@ HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
   const int32_t price = be32toh(execution_notice.trade_price);
 
-  //TODO match the specific orderbook, switch case? know the id in advance
-  removeOrder(order_id, resting_side, price, qty);
+  printf("executing order with trade info\n");
+
+  order_books[book_id]->removeOrder(order_id, resting_side, price, qty);
 }
 
 COLD void Client::handleEquilibriumPrice(const MessageData &data)
@@ -410,8 +414,9 @@ COLD void Client::handleEquilibriumPrice(const MessageData &data)
   const uint64_t bid_qty = be64toh(equilibrium_price.available_bid_quantity);
   const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
 
-  //TODO match the specific orderbook, switch case? know the id in advance
-  setEquilibrium(price, bid_qty, ask_qty);
+  printf("setting equilibrium price\n");
+
+  order_books[book_id]->setEquilibrium(price, bid_qty, ask_qty);
 }
 
 HOT void Client::handleSeconds(UNUSED const MessageData &data)
@@ -421,10 +426,12 @@ HOT void Client::handleSeconds(UNUSED const MessageData &data)
 COLD void Client::handleSeriesInfoBasic(const MessageData &data)
 {
   const uint32_t book_id = be32toh(data.series_info_basic.orderbook_id);
-  const char *const symbol = data.series_info_basic.symbol;
+  const std::string_view symbol(data.series_info_basic.symbol, sizeof(data.series_info_basic.symbol));
 
-  //TODO create orderbook object if not already present. compare with the configured tickers to track
+  if (LIKELY(order_books.find(book_id) != order_books.end()))
+    return;
 
+  order_books.emplace(book_id, std::make_unique<OrderBook>(book_id, symbol));
 }
 
 COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageData &data)
