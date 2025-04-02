@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-02 19:03:52                                                
+last edited: 2025-04-02 20:27:42                                                
 
 ================================================================================*/
 
@@ -18,9 +18,8 @@ last edited: 2025-04-02 19:03:52
 
 extern volatile bool error;
 
-COLD OrderBook::OrderBook(const uint32_t id, const std::string_view symbol) noexcept :
-  id(id),
-  symbol(symbol),
+COLD OrderBook::OrderBook(void) :
+  id(0),
   equilibrium_price(INT32_MIN),
   equilibrium_bid_qty(INT32_MIN)
 {
@@ -31,6 +30,11 @@ COLD OrderBook::OrderBook(const uint32_t id, const std::string_view symbol) noex
 }
 
 COLD OrderBook::~OrderBook(void) {}
+
+COLD void OrderBook::setId(const uint32_t id) noexcept
+{
+  this->id = id;
+}
 
 HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t price, const uint64_t qty)
 {

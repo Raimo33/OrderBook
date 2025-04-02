@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-02 19:03:52                                                
+last edited: 2025-04-02 20:27:42                                                
 
 ================================================================================*/
 
@@ -22,7 +22,7 @@ last edited: 2025-04-02 19:03:52
 class OrderBook
 {
   public:
-    OrderBook(const uint32_t id, const std::string_view symbol) noexcept;
+    OrderBook(void) noexcept;
     ~OrderBook(void);
 
     enum Side : uint8_t { BID = 0, ASK = 1 };
@@ -32,6 +32,9 @@ class OrderBook
       int32_t price;
       uint64_t qty;
     } BookEntry;
+
+    void setId(const uint32_t id) noexcept;
+    uint64_t getId(void) const noexcept;
 
     inline BookEntry getBestBid(void) const noexcept;
     inline BookEntry getBestAsk(void) const noexcept;
@@ -50,8 +53,7 @@ class OrderBook
     template <typename Comparator> std::vector<int32_t>::const_iterator findPrice(const std::vector<int32_t> &prices, const int32_t price) const;
     void removeOrder(std::vector<int32_t> &prices, std::vector<uint64_t> &qtys, const BookEntry &order);
 
-    const uint32_t id;
-    const std::string symbol;
+    uint32_t id;
 
     ska::flat_hash_map<uint64_t, BookEntry> orders;
     std::vector<int32_t> price_arrays[2];

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-01 20:42:59                                                
+last edited: 2025-04-02 20:27:42                                                
 
 ================================================================================*/
 
@@ -15,8 +15,6 @@ last edited: 2025-04-01 20:42:59
 #include <string>
 #include <string_view>
 #include <netinet/in.h>
-#include <ska/flat_hash_map.hpp>
-#include <memory>
 
 #include "OrderBook.hpp"
 #include "Packets.hpp"
@@ -61,7 +59,8 @@ class Client
     void handleExecutionNoticeWithTradeInfo(const MessageData &data);
     void handleEquilibriumPrice(const MessageData &data);
 
-    ska::flat_hash_map<uint32_t, std::unique_ptr<OrderBook>> order_books;
+    //TODO perfect map, frozen at compile time
+    rai::frozen_map<uint64_t, OrderBook> order_books;
     const std::string username;
     const std::string password;
     const sockaddr_in glimpse_address;

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-02 19:03:52                                                
+last edited: 2025-04-02 20:27:42                                                
 
 ================================================================================*/
 
@@ -423,17 +423,8 @@ HOT void Client::handleSeconds(UNUSED const MessageData &data)
 {
 }
 
-COLD void Client::handleSeriesInfoBasic(const MessageData &data)
+COLD void Client::handleSeriesInfoBasic(UNUSED const MessageData &data)
 {
-  const uint32_t book_id = be32toh(data.series_info_basic.orderbook_id);
-  const std::string_view symbol(data.series_info_basic.symbol, sizeof(data.series_info_basic.symbol));
-
-  if (LIKELY(order_books.find(book_id) != order_books.end()))
-    return;
-
-  printf("creating order book %u, label %.32s\n", book_id, symbol.data());
-
-  order_books.emplace(book_id, std::make_unique<OrderBook>(book_id, symbol));
 }
 
 COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageData &data)
