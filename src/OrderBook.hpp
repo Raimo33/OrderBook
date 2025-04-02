@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-01 19:30:34                                                
+last edited: 2025-04-02 19:03:52                                                
 
 ================================================================================*/
 
@@ -25,7 +25,7 @@ class OrderBook
     OrderBook(const uint32_t id, const std::string_view symbol) noexcept;
     ~OrderBook(void);
 
-    enum Side : char { BID = 'B', ASK = 'S' };
+    enum Side : uint8_t { BID = 0, ASK = 1 };
 
     typedef struct 
     {
@@ -47,7 +47,7 @@ class OrderBook
 
   private:
 
-    template <typename Compare> std::vector<int32_t>::const_iterator findPrice(const std::vector<int32_t> &prices, const int32_t price) const;
+    template <typename Comparator> std::vector<int32_t>::const_iterator findPrice(const std::vector<int32_t> &prices, const int32_t price) const;
     void removeOrder(std::vector<int32_t> &prices, std::vector<uint64_t> &qtys, const BookEntry &order);
 
     const uint32_t id;

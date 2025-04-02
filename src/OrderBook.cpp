@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-01 19:30:34                                                
+last edited: 2025-04-02 19:03:52                                                
 
 ================================================================================*/
 
@@ -27,7 +27,7 @@ COLD OrderBook::OrderBook(const uint32_t id, const std::string_view symbol) noex
   price_arrays[BID].push_back(0);
   price_arrays[ASK].push_back(UINT32_MAX);
   qty_arrays[BID].push_back(0);
-  qty_arrays[ASK].push_back(UINT64_MAX);
+  qty_arrays[ASK].push_back(0);
 }
 
 COLD OrderBook::~OrderBook(void) {}
@@ -40,7 +40,7 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t p
   orders.emplace(id, BookEntry{price, qty});
 
   using FindPriceFunc = std::vector<int32_t>::const_iterator (OrderBook::*)(const std::vector<int32_t>&, const int32_t) const;
-  static const FindPriceFunc findPrice_funcs[] = {
+  static constexpr FindPriceFunc findPrice_funcs[] = {
     &OrderBook::findPrice<std::less<int32_t>>,
     &OrderBook::findPrice<std::greater<int32_t>>
   };
@@ -83,7 +83,7 @@ HOT void OrderBook::removeOrder(std::vector<int32_t> &prices, std::vector<uint64
   available_qty -= order.qty;
 
   using LevelRemover = void(*)(std::vector<int32_t>&, std::vector<uint64_t>&, std::vector<int32_t>::const_iterator, std::vector<uint64_t>::iterator);
-  constexpr LevelRemover removeLevel[] = {
+  static constexpr LevelRemover removeLevel[] = {
     [](std::vector<int32_t>&, std::vector<uint64_t>&, auto, auto) {},
     [](std::vector<int32_t>& prices, std::vector<uint64_t>& qtys, auto price_it, auto qty_it) {
       prices.erase(price_it);
@@ -105,7 +105,7 @@ HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qt
   available_qty -= qty;
 
   using OrderRemover = void(*)(std::vector<int32_t>&, std::vector<uint64_t>&);
-  constexpr OrderRemover removeOrder[] = {
+  static constexpr OrderRemover removeOrder[] = {
     [](std::vector<int32_t> &, std::vector<uint64_t> &) {},
     [](std::vector<int32_t> &prices, std::vector<uint64_t> &qtys) {
       prices.pop_back();
@@ -116,13 +116,13 @@ HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qt
   removeOrder[available_qty == 0](prices, qtys);
 }
 
-template <typename Compare>
+template <typename Comparator>
 HOT std::vector<int32_t>::const_iterator OrderBook::findPrice(const std::vector<int32_t> &prices, const int32_t price) const
 {
   const int32_t *start = prices.data();
   size_t remaining = prices.size();
   const int32_t *current = start + remaining - 1;
-  constexpr Compare comp;
+  constexpr Comparator comp;
   bool keep_looking = true;
 
   PREFETCH_R(current, 0);

@@ -11,9 +11,7 @@ CXXFLAGS += -std=c++23
 CXXFLAGS += -Wall -Wextra -Werror -pedantic
 #architecture
 CXXFLAGS += -march=znver2 -mtune=znver2
-
 #TODO benchmark all selectively
-
 #promises
 # CXXFLAGS += -fomit-frame-pointer -fno-exceptions -fno-rtti -fstrict-aliasing -fno-math-errno -fno-stack-protector
 # #overall settings
@@ -48,13 +46,10 @@ CXXFLAGS += -march=znver2 -mtune=znver2
 
 LDFLAGS = -static -static-libgcc -static-libstdc++
 
-%.o: %.cpp %.d
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-%.d: %.cpp
+%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
-$(TARGET): $(OBJS) $(DEPS)
+$(TARGET): $(OBJS)
 	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
 clean:
@@ -65,7 +60,9 @@ fclean: clean
 
 re: fclean $(TARGET)
 
+-include $(DEPS)
+
 .PHONY: fclean clean re
 .IGNORE: fclean clean
-.PRECIOUS: $(DEPS)
+.PRECIOUS: .o .d
 .SILENT:

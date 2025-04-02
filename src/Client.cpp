@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-01 20:42:59                                                
+last edited: 2025-04-02 19:03:52                                                
 
 ================================================================================*/
 
@@ -384,7 +384,7 @@ HOT void Client::handleExecutionNotice(const MessageData &data)
   const auto &execution_notice = data.execution_notice;
   const uint32_t book_id = be32toh(execution_notice.orderbook_id);
   const uint64_t order_id = be64toh(execution_notice.order_id);
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side);
+  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
 
   printf("executing order\n");
@@ -397,7 +397,7 @@ HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
   const auto &execution_notice = data.execution_notice_with_trade_info;
   const uint32_t book_id = be32toh(execution_notice.orderbook_id);
   const uint64_t order_id = be64toh(execution_notice.order_id);
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side);
+  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
   const int32_t price = be32toh(execution_notice.trade_price);
 
@@ -430,6 +430,8 @@ COLD void Client::handleSeriesInfoBasic(const MessageData &data)
 
   if (LIKELY(order_books.find(book_id) != order_books.end()))
     return;
+
+  printf("creating order book %u, label %.32s\n", book_id, symbol.data());
 
   order_books.emplace(book_id, std::make_unique<OrderBook>(book_id, symbol));
 }
