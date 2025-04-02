@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-03-30 19:04:28                                                
+last edited: 2025-04-02 21:57:52                                                
 
 ================================================================================*/
 
@@ -16,6 +16,11 @@ last edited: 2025-03-30 19:04:28
 #include "error.hpp"
 
 extern volatile bool error;
+
+COLD inline uint64_t OrderBook::getId(void) const noexcept
+{
+  return id;
+}
 
 HOT inline OrderBook::BookEntry OrderBook::getBestBid(void) const noexcept
 {

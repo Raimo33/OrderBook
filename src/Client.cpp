@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-02 20:27:42                                                
+last edited: 2025-04-02 21:57:52                                                
 
 ================================================================================*/
 
@@ -22,7 +22,7 @@ last edited: 2025-04-02 20:27:42
 #include "error.hpp"
 
 COLD Client::Client(const std::string_view username, const std::string_view password) noexcept :
-  order_books(),
+  order_books(), //TODO construct orderbooks by calling constructors with the IDs
   username(username),
   password(password),
   glimpse_address(createAddress(GLIMPSE_IP, GLIMPSE_PORT)),
@@ -362,7 +362,7 @@ HOT void Client::handleNewOrder(const MessageData &data)
   if (price == INT32_MIN)
     return;
 
-  printf("adding order\n");
+  //TODO check if the book_id is among the ones we are interested in
 
   order_books[book_id]->addOrder(order_id, side, price, qty);
 }
@@ -374,7 +374,7 @@ HOT void Client::handleDeletedOrder(const MessageData &data)
   const uint64_t order_id = be64toh(deleted_order.order_id);
   const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side);
 
-  printf("deleting order\n");
+  //TODO check if the book_id is among the ones we are interested in
 
   order_books[book_id]->removeOrder(order_id, side);
 }
@@ -387,7 +387,7 @@ HOT void Client::handleExecutionNotice(const MessageData &data)
   const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
 
-  printf("executing order\n");
+  //TODO check if the book_id is among the ones we are interested in
 
   order_books[book_id]->executeOrder(order_id, resting_side, qty);
 }
@@ -401,7 +401,7 @@ HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
   const int32_t price = be32toh(execution_notice.trade_price);
 
-  printf("executing order with trade info\n");
+  //TODO check if the book_id is among the ones we are interested in
 
   order_books[book_id]->removeOrder(order_id, resting_side, price, qty);
 }
@@ -414,7 +414,7 @@ COLD void Client::handleEquilibriumPrice(const MessageData &data)
   const uint64_t bid_qty = be64toh(equilibrium_price.available_bid_quantity);
   const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
 
-  printf("setting equilibrium price\n");
+  //TODO check if the book_id is among the ones we are interested in
 
   order_books[book_id]->setEquilibrium(price, bid_qty, ask_qty);
 }
