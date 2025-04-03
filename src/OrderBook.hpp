@@ -14,14 +14,13 @@ last edited: 2025-04-02 21:57:52
 #include <cstdint>
 #include <array>
 #include <vector>
-#include <ska/bytell_hash_map.hpp>
 
 #include "macros.hpp"
 
 class OrderBook
 {
   public:
-    OrderBook(void) noexcept;
+    OrderBook(const uint64_t id) noexcept;
     OrderBook(OrderBook &&other) noexcept;
     ~OrderBook(void);
 
@@ -49,16 +48,22 @@ class OrderBook
 
   private:
 
-    template <typename Comparator> 
-    std::vector<int32_t>::const_iterator findPrice(const std::vector<int32_t> &prices, const int32_t price) const;
-
-    void removeOrder(std::vector<int32_t> &prices, std::vector<uint64_t> &qtys, const BookEntry &order);
-
     const uint32_t id;
 
-    ska::bytell_hash_map<uint64_t, BookEntry> orders;
-    std::array<std::vector<int32_t>, 2> price_arrays;
-    std::array<std::vector<uint64_t>, 2> qty_arrays;
+    struct PriceLevels
+    {
+      //sorted with best price last. prices[i] and cumulative_qtys[i] are the same price level
+      std::vector<int32_t> prices;
+      std::vector<int32_t> cumulative_qtys;
+
+      //unsorted, order_ids[i][j] and order_qtys[i][j] are the same order
+      std::vector<std::vector<uint64_t>> order_ids;
+      std::vector<std::vector<uint64_t>> order_qtys;
+    };
+
+    PriceLevels bids;
+    PriceLevels asks;
+
     int32_t equilibrium_price;
     uint64_t equilibrium_bid_qty;
     uint64_t equilibrium_ask_qty;

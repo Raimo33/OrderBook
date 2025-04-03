@@ -142,9 +142,9 @@ HOT void Client::updateOrderbooks(void)
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
   //+1 added for safe prefetching past the last packet 
-  alignas(CACHELINE_SIZE) mmsghdr mmsgs[MAX_BURST_PACKETS+1]{};
-  alignas(CACHELINE_SIZE) iovec iov[2][MAX_BURST_PACKETS+1]{};
-  alignas(CACHELINE_SIZE) struct Packet {
+  alignas(64) mmsghdr mmsgs[MAX_BURST_PACKETS+1]{};
+  alignas(64) iovec iov[2][MAX_BURST_PACKETS+1]{};
+  alignas(64) struct Packet {
     MoldUDP64Header header;
     char payload[MAX_MSG_SIZE];
   } packets[MAX_BURST_PACKETS+1]{};
