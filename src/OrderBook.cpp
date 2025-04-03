@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-02 21:57:52                                                
+last edited: 2025-04-03 16:38:05                                                
 
 ================================================================================*/
 
@@ -49,88 +49,126 @@ HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qt
   //TODO
 }
 
-//TODO avx now only works for signed 32bit ints
-template <typename T, typename Comparator = std::equal_to<T>>
-HOT static typename std::vector<T>::const_iterator find(const std::vector<T> &array, const T elem)
+template <typename T, typename Comparator>
+HOT static typename std::vector<T>::const_iterator rfind(const std::vector<T> &array, const T elem, const Comparator &comp)
 {
-  constexpr Comparator comp;
-  const T *start = array.data();
+  static_assert(std::is_integral<T>::value, "T must be an integral type");
+  static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
+
+  constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
+
+  const T *begin = array.data();
   size_t remaining = array.size();
-  const T *current = start + remaining - 1;
+  const T *it = begin + remaining;
   bool keep_looking = true;
 
-  PREFETCH_R(current, 0);
+  PREFETCH_R(it, 0);
   const bool safe = (remaining >= chunk_size);
-  PREFETCH_R(current - chunk_size * safe, 0);
+  PREFETCH_R(it - chunk_size * safe, 0);
 
-  uint8_t misalignment = misalignment_backwards(current, CACHELINE_SIZE);
+  uint8_t misalignment = misalignment_backwards(it, 64);
   misalignment -= (misalignment > remaining) * (misalignment - remaining);
   remaining -= misalignment;
 
   keep_looking = (misalignment > 0);
   while (keep_looking)
   {
-    keep_looking = comp(elem, *current);
-
-    --current;
+    --it;
     --misalignment;
 
+    keep_looking = comp(elem, *it);
     keep_looking &= (misalignment > 0);
   }
 
-  if (LIKELY(misalignment > 0))
-    return array.cbegin() + misalignment;
+  if (LIKELY(misalignment))
+    return it;
 
 #if defined(__AVX512F__)
-  const __m512i elem_vec = _mm512_set1_epi32(elem);
-  __mmask16 mask = 0xFFFF;
+  const __m512i elem_vec = [elem]() -> __m512i
+  {
+    if constexpr (sizeof(T) == sizeof(int8_t))
+      return _mm512_set1_epi8((elem));
+    else if constexpr (sizeof(T) == sizeof(int16_t))
+      return _mm512_set1_epi16(elem);
+    else if constexpr (sizeof(T) == sizeof(int32_t))
+      return _mm512_set1_epi32(elem);
+    else if constexpr (sizeof(T) == sizeof(int64_t))
+      return _mm512_set1_epi64(elem);
+    else
+      static_assert(false, "Unsupported type");
+  }();
+  constexpr int opcode = []() -> int
+  {
+    if constexpr (std::is_same_v<Comparator, std::equal_to<T>>)
+      return _MM_CMPINT_EQ;
+    else if constexpr (std::is_same_v<Comparator, std::not_equal_to<T>>)
+      return _MM_CMPINT_NE;
+    else if constexpr (std::is_same_v<Comparator, std::less_equal<T>>)
+      return _MM_CMPINT_LE;
+    else if constexpr (std::is_same_v<Comparator, std::greater_equal<T>>)
+      return _MM_CMPINT_GE;
+    else if constexpr (std::is_same_v<Comparator, std::less<T>>)
+      return _MM_CMPINT_LT;
+    else if constexpr (std::is_same_v<Comparator, std::greater<T>>)
+      return _MM_CMPINT_GT;
+    else
+      static_assert(false, "Unsupported comparator");
+  }();
+  __mmask64 mask = 0;
 
   keep_looking = (remaining >= chunk_size);
   while (keep_looking)
   {
-    const __m512i chunk = _mm512_load_si512(current - chunk_size);
+    it -= chunk_size;
+    const __m512i chunk = _mm512_loadu_si512(it);
 
-    const bool safe = (remaining >= (chunk_size * 2));
-    PREFETCH_R(current - chunk_size * safe, 0);
-
-    if constexpr (std::is_same_v<Compare, std::less<T>>)
-      mask = _mm512_cmplt_epi32_mask(chunk, elem_vec);
-    else if constexpr (std::is_same_v<Compare, std::greater<T>>)
-      mask = _mm512_cmpgt_epi32_mask(chunk, elem_vec);
-    else if constexpr (std::is_same_v<Compare, std::equal_to<T>>)
-      mask = _mm512_cmpeq_epi32_mask(chunk, elem_vec);
-    else
-      static_assert(false, "Unsupported comparison type");
-
-    current -= chunk_size;
     remaining -= chunk_size;
-
     keep_looking = (remaining >= chunk_size);
-    keep_looking &= (mask == 0xFFFF);
+
+    PREFETCH_R(it - chunk_size * keep_looking, 0);
+
+    if constexpr (std::is_signed_v<T>)
+    {
+      if constexpr (sizeof(T) == sizeof(int8_t))
+        mask = _mm512_cmp_epi8_mask(chunk, elem_vec, opcode);
+      else if constexpr (sizeof(T) == sizeof(int16_t))
+        mask = _mm512_cmp_epi16_mask(chunk, elem_vec, opcode);
+      else if constexpr (sizeof(T) == sizeof(int32_t))
+        mask = _mm512_cmp_epi32_mask(chunk, elem_vec, opcode);
+      else if constexpr (sizeof(T) == sizeof(int64_t))
+        mask = _mm512_cmp_epi64_mask(chunk, elem_vec, opcode);
+    }
+    else
+    {
+      if constexpr (sizeof(T) == siezof(int8_t))
+        mask = _mm512_cmp_epu8_mask(chunk, elem_vec, opcode);
+      else if constexpr (sizeof(T) == sizeof(int16_t))
+        mask = _mm512_cmp_epu16_mask(chunk, elem_vec, opcode);
+      else if constexpr (sizeof(T) == sizeof(int32_t))
+        mask = _mm512_cmp_epu32_mask(chunk, elem_vec, opcode);
+      else if constexpr (sizeof(T) == sizeof(int64_t))
+        mask = _mm512_cmp_epu64_mask(chunk, elem_vec, opcode);
+    }
+
+    keep_looking &= !mask;
   }
 
-  if (LIKELY(mask != 0xFFFF))
+  if (LIKELY(mask))
   {
-    const uint32_t mismatch_pos = _tzcnt_u32(~mask);
-    return array.cbegin() + (remaining + mismatch_pos);
+    const uint8_t matched_idx = 63 - __builtin_ctzll(mask);
+    return it + matched_idx;
   }
 #endif
-
-  PREFETCH_R(start, 0);
 
   keep_looking = (remaining > 0);
   while (keep_looking)
   {
-    keep_looking = comp(elem, *current);
-
-    --current;
+    --it;
     --remaining;
-
+    
+    keep_looking = comp(elem, *it);
     keep_looking &= (remaining > 0);
   }
 
-  if (LIKELY(remaining > 0))
-    return array.cbegin() + remaining;
-
-  return array.cend();
+  return it * (remaining > 0);
 }

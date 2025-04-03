@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-02 21:57:52                                                
+last edited: 2025-04-03 16:38:05                                                
 
 ================================================================================*/
 
@@ -15,7 +15,6 @@ last edited: 2025-04-02 21:57:52
 #include <string>
 #include <string_view>
 #include <netinet/in.h>
-#include <ska/flat_hash_map.hpp>
 
 #include "OrderBook.hpp"
 #include "Packets.hpp"
@@ -60,7 +59,12 @@ class Client
     void handleExecutionNoticeWithTradeInfo(const MessageData &data);
     void handleEquilibriumPrice(const MessageData &data);
 
-    ska::flat_hash_map<std::string, OrderBook> order_books;
+    struct
+    {
+      std::vector<uint64_t> ids;
+      std::vector<OrderBook> books;
+    } order_books;
+
     const std::string username;
     const std::string password;
     const sockaddr_in glimpse_address;
