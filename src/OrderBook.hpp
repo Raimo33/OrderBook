@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-03 16:38:05                                                
+last edited: 2025-04-03 20:16:29                                                
 
 ================================================================================*/
 
@@ -20,7 +20,8 @@ last edited: 2025-04-03 16:38:05
 class OrderBook
 {
   public:
-    OrderBook(const uint64_t id) noexcept;
+    OrderBook(void) noexcept;
+    OrderBook(OrderBook &&) noexcept;
     ~OrderBook(void);
 
     enum Side : uint8_t { BID = 0, ASK = 1 };
@@ -30,8 +31,6 @@ class OrderBook
       int32_t price;
       uint64_t qty;
     } BookEntry;
-
-    inline uint64_t getId(void) const noexcept;
 
     inline BookEntry getBestBid(void) const noexcept;
     inline BookEntry getBestAsk(void) const noexcept;
@@ -46,8 +45,6 @@ class OrderBook
     inline void setEquilibrium(const int32_t price, const uint64_t bid_qty, const uint64_t ask_qty) noexcept;
 
   private:
-
-    const uint32_t id;
 
     struct PriceLevels
     {

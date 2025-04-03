@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-03 16:38:05                                                
+last edited: 2025-04-03 20:16:29                                                
 
 ================================================================================*/
 
@@ -23,6 +23,7 @@ last edited: 2025-04-03 16:38:05
 class Client
 {
   public:
+
     Client(const std::string_view username, const std::string_view password) noexcept;
     ~Client(void) noexcept;
 
@@ -61,7 +62,7 @@ class Client
 
     struct
     {
-      std::vector<uint64_t> ids;
+      std::vector<uint32_t> ids;
       std::vector<OrderBook> books;
     } order_books;
 

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-02 21:57:52                                                
+last edited: 2025-04-03 20:16:29                                                
 
 ================================================================================*/
 
@@ -18,11 +18,14 @@ last edited: 2025-04-02 21:57:52
 
 #include "Client.hpp"
 #include "config.hpp"
+#include "utils.hpp"
 #include "macros.hpp"
 #include "error.hpp"
 
+//TODO make Client() independent from config.hpp
+
 COLD Client::Client(const std::string_view username, const std::string_view password) noexcept :
-  order_books(), //TODO construct orderbooks by calling constructors with the IDs
+  order_books(),
   username(username),
   password(password),
   glimpse_address(createAddress(GLIMPSE_IP, GLIMPSE_PORT)),
@@ -359,12 +362,14 @@ HOT void Client::handleNewOrder(const MessageData &data)
   const int32_t price = be32toh(new_order.price);
   const uint64_t qty = be64toh(new_order.quantity);
 
+  //TODO branchless, not predictable at all (call handleMarketOrder which is a no-op and handleLimitOrder)
   if (price == INT32_MIN)
     return;
 
-  //TODO check if the book_id is among the ones we are interested in
-
-  order_books[book_id]->addOrder(order_id, side, price, qty);
+  static constexpr std::equal_to<uint32_t> comp{}; 
+  const auto it = utils::find(order_books.ids, book_id, comp);
+  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
+  order_books.books[idx].addOrder(order_id, side, price, qty);
 }
 
 HOT void Client::handleDeletedOrder(const MessageData &data)
@@ -374,9 +379,10 @@ HOT void Client::handleDeletedOrder(const MessageData &data)
   const uint64_t order_id = be64toh(deleted_order.order_id);
   const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side);
 
-  //TODO check if the book_id is among the ones we are interested in
-
-  order_books[book_id]->removeOrder(order_id, side);
+  static constexpr std::equal_to<uint32_t> comp{};
+  const auto it = utils::find(order_books.ids, book_id, comp);
+  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
+  order_books.books[idx].removeOrder(order_id, side);  
 }
 
 HOT void Client::handleExecutionNotice(const MessageData &data)
@@ -387,9 +393,10 @@ HOT void Client::handleExecutionNotice(const MessageData &data)
   const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
 
-  //TODO check if the book_id is among the ones we are interested in
-
-  order_books[book_id]->executeOrder(order_id, resting_side, qty);
+  static constexpr std::equal_to<uint32_t> comp{};
+  const auto it = utils::find(order_books.ids, book_id, comp);
+  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
+  order_books.books[idx].executeOrder(order_id, resting_side, qty);
 }
 
 HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
@@ -401,9 +408,10 @@ HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
   const uint64_t qty = be64toh(execution_notice.executed_quantity);
   const int32_t price = be32toh(execution_notice.trade_price);
 
-  //TODO check if the book_id is among the ones we are interested in
-
-  order_books[book_id]->removeOrder(order_id, resting_side, price, qty);
+  static constexpr std::equal_to<uint32_t> comp{};
+  const auto it = utils::find(order_books.ids, book_id, comp);
+  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
+  order_books.books[idx].removeOrder(order_id, resting_side, price, qty);
 }
 
 COLD void Client::handleEquilibriumPrice(const MessageData &data)
@@ -414,17 +422,23 @@ COLD void Client::handleEquilibriumPrice(const MessageData &data)
   const uint64_t bid_qty = be64toh(equilibrium_price.available_bid_quantity);
   const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
 
-  //TODO check if the book_id is among the ones we are interested in
-
-  order_books[book_id]->setEquilibrium(price, bid_qty, ask_qty);
+  static constexpr std::equal_to<uint32_t> comp{};
+  const auto it = utils::find(order_books.ids, book_id, comp);
+  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
+  order_books.books[idx].setEquilibrium(price, bid_qty, ask_qty);
 }
 
 HOT void Client::handleSeconds(UNUSED const MessageData &data)
 {
 }
 
-COLD void Client::handleSeriesInfoBasic(UNUSED const MessageData &data)
+COLD void Client::handleSeriesInfoBasic(const MessageData &data)
 {
+  const auto &series_info_basic = data.series_info_basic;
+  const uint32_t book_id = be32toh(series_info_basic.orderbook_id);
+
+  order_books.ids.push_back(book_id);
+  order_books.books.emplace_back(OrderBook());
 }
 
 COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageData &data)

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-30 15:01:52                                                 
-last edited: 2025-04-02 20:27:42                                                
+last edited: 2025-04-03 20:16:29                                                
 
 ================================================================================*/
 
@@ -23,5 +23,3 @@ last edited: 2025-04-02 20:27:42
 #define SOCK_BUFSIZE 8388608
 #define MAX_BURST_PACKETS 32
 #define IFNAME "enp43s0f0np0"
-
-#define BOOK_IDS 51743963673, 85401482840, 59824335600, 92693530493, 32720902129, 35669794838, 37795277770, 77357464703

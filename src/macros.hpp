@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-03-31 15:01:09                                                
+last edited: 2025-04-03 20:16:29                                                
 
 ================================================================================*/
 
@@ -22,7 +22,3 @@ last edited: 2025-03-31 15:01:09
 #define PREFETCH_R(x, priority)         __builtin_prefetch(x, 0, priority)
 #define PREFETCH_W(x, priority)         __builtin_prefetch(x, 1, priority)
 #define ASSUME_ALIGNED(x, alignment)    __builtin_assume_aligned(x, align)
-
-#define restrict __restrict__
-#define misalignment_forward(ptr, alignment)    (-(uintptr_t)ptr & (alignment - 1))
-#define misalignment_backwards(ptr, alignment)  ((uintptr_t)ptr & (alignment - 1))
