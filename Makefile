@@ -1,6 +1,9 @@
 TARGET := OrderBook
 
-SRCS := $(addprefix src/, main.cpp Client.cpp OrderBook.cpp utils.cpp simd_utils.cpp error.cpp)
+INCS_DIR := incs
+SRCS_DIR := srcs
+
+SRCS := $(addprefix $(SRCS_DIR)/, main.cpp Client.cpp MessageHandler.cpp OrderBook.cpp error.cpp)
 OBJS := $(SRCS:.cpp=.o)
 DEPS := $(OBJS:.o=.d)
 
@@ -43,6 +46,8 @@ CXXFLAGS += -march=znver2 -mtune=znver2
 # CXXFLAGS += -fcaller-saves -fdefer-pop -fguess-branch-probability
 #linker
 # CXXFLAGS += -fno-plt -fuse-linker-plugin -flto
+
+CXXFLAGS += -I$(INCS_DIR)
 
 LDFLAGS = -static -static-libgcc -static-libstdc++
 

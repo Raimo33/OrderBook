@@ -1,22 +1,14 @@
-/*================================================================================
-
-File: simd_utils.hpp                                                            
-Creator: Claudio Raimondi                                                       
-Email: claudio.raimondi@pm.me                                                   
-
-created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-03 21:37:23                                                
-
-================================================================================*/
+#pragma once
 
 #include <immintrin.h>
 #include <cstdint>
 #include <type_traits>
 
+#include "simd_utils.hpp"
 #include "macros.hpp"
 
 template <typename VectorType, typename ScalarType>
-ALWAYS_INLINE inline constexpr static VectorType create_simd_vector(const ScalarType &elem)
+ALWAYS_INLINE inline constexpr static VectorType utils::simd::create_vector(const ScalarType &elem)
 {
 #if defined(__AVX512F__)
   if constexpr (std::is_same_v<T, __m512i>)
@@ -93,7 +85,7 @@ ALWAYS_INLINE inline constexpr static VectorType create_simd_vector(const Scalar
 }
 
 template <typename ScalarType, typename Comparator>
-ALWAYS_INLINE inline static consteval int get_simd_opcode(void)
+ALWAYS_INLINE inline static consteval int utils::simd::get_opcode(void)
 {
   if constexpr (std::is_integral_v<ScalarType>)
   {
@@ -129,7 +121,7 @@ ALWAYS_INLINE inline static consteval int get_simd_opcode(void)
 }
 
 template <typename VectorType, typename ScalarType>
-ALWAYS_INLINE inline static __mmask64 compare_simd(const VectorType &chunk, const VectorType &elem_vec, const int opcode)
+ALWAYS_INLINE inline static __mmask64 utils::simd::compare(const VectorType &chunk, const VectorType &elem_vec, const int opcode)
 {
 #if defined(__AVX512F__)
   if constexpr (std::is_same<VectorType, __m512i>::value)
@@ -246,6 +238,3 @@ ALWAYS_INLINE inline static __mmask64 compare_simd(const VectorType &chunk, cons
 #endif
   static_assert(false, "Unsupported type");
 }
-
-#define misalignment_forward(ptr, alignment)    (-(uintptr_t)ptr & (alignment - 1))
-#define misalignment_backwards(ptr, alignment)  ((uintptr_t)ptr & (alignment - 1))

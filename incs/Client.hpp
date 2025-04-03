@@ -16,8 +16,8 @@ last edited: 2025-04-03 21:37:23
 #include <string_view>
 #include <netinet/in.h>
 
-#include "OrderBook.hpp"
-#include "Packets.hpp"
+#include "MessageHandler.hpp"
+#include "packets.hpp"
 #include "config.hpp"
 
 class Client
@@ -43,32 +43,12 @@ class Client
     void recvSnapshot(void);
     void sendLogout(void) const;
 
-    void processSnapshot(const char *restrict buffer, const uint16_t length);
+    void processSnapshots(const char *restrict buffer, const uint16_t length);
     void processMessageBlocks(const char *restrict buffer, uint16_t blocks_count);
-    void processMessageData(const MessageData &data);
-    
+
     void handleSnapshotCompletion(const MessageData &data);
-    void handleNewOrder(const MessageData &data);
-    void handleDeletedOrder(const MessageData &data);
-    void handleSeconds(const MessageData &data);
-    void handleSeriesInfoBasic(const MessageData &data);
-    void handleSeriesInfoBasicCombination(const MessageData &data);
-    void handleTickSizeData(const MessageData &data);
-    void handleSystemEvent(const MessageData &data);
-    void handleTradingStatus(const MessageData &data);
-    void handleExecutionNotice(const MessageData &data);
-    void handleExecutionNoticeWithTradeInfo(const MessageData &data);
-    void handleEquilibriumPrice(const MessageData &data);
-    
-    void handleNewLimitOrder(const MessageData &data);
-    void handleNewMarketOrder(const MessageData &data);
 
-    struct
-    {
-      std::vector<uint32_t> ids;
-      std::vector<OrderBook> books;
-    } order_books;
-
+    static MessageHandler message_handler;
     const std::string username;
     const std::string password;
     const sockaddr_in glimpse_address;

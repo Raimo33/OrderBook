@@ -22,8 +22,10 @@ namespace utils
   typename std::vector<T>::iterator rfind(const std::vector<T> &vector, const T &elem, const Comparator &comp) noexcept;
 
   template <typename T>
-  consteval T to_host(const T &value) noexcept;
+  T to_host(const T &value) noexcept;
 
   template <typename T>
-  consteval T to_network(const T &value) noexcept;
+  T to_network(const T &value) noexcept;
 }
+
+#include "utils.tpp"

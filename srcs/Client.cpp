@@ -18,12 +18,11 @@ last edited: 2025-04-03 21:37:23
 
 #include "Client.hpp"
 #include "config.hpp"
-#include "utils.hpp"
+#include "utils/utils.hpp"
 #include "macros.hpp"
 #include "error.hpp"
 
 COLD Client::Client(const std::string_view username, const std::string_view password) noexcept :
-  order_books(),
   username(username),
   password(password),
   glimpse_address(createAddress(GLIMPSE_IP, GLIMPSE_PORT)),
@@ -245,7 +244,7 @@ COLD void Client::recvSnapshot(void)
     case 'S':
     {
       const char *const payload = reinterpret_cast<const char *>(&packet.body.sequenced_data);
-      processSnapshot(payload, body_length - sizeof(packet.body.type));
+      processSnapshots(payload, body_length - sizeof(packet.body.type));
       break;
     }
     default:
@@ -255,8 +254,8 @@ COLD void Client::recvSnapshot(void)
 
 COLD void Client::sendLogout(void) const
 {
-  constexpr SoupBinTCPPacket packet = {
-    .body_length = utils::to_network(1),
+  const SoupBinTCPPacket packet = {
+    .body_length = utils::to_network<uint16_t>(1),
     .body = {
       .type = 'Z',
       .logout_request{}
@@ -268,7 +267,7 @@ COLD void Client::sendLogout(void) const
   CHECK_ERROR;
 }
 
-COLD void Client::processSnapshot(const char *restrict buffer, const uint16_t buffer_size)
+COLD void Client::processSnapshots(const char *restrict buffer, const uint16_t buffer_size)
 {
   static constexpr uint8_t size = 'Z' + 1;
   static constexpr std::array<uint16_t, size> data_lengths = []()
@@ -297,7 +296,11 @@ COLD void Client::processSnapshot(const char *restrict buffer, const uint16_t bu
     const uint16_t length = sizeof(data.type) + data_lengths[data.type];
 
     PREFETCH_R(buffer + length, 1);
-    processMessageData(data);
+
+    if (UNLIKELY(data.type == 'G'))
+      handleSnapshotCompletion(data);
+    else
+      message_handler.handleMessage(data);
 
     sequence_number++;
     buffer += length;
@@ -312,36 +315,10 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
     const uint16_t length = sizeof(block.length) + utils::to_host(block.length);
 
     PREFETCH_R(buffer + length, 1);
-    processMessageData(block.data);
+    message_handler.handleMessage(block.data);
 
     buffer += length;
   }
-}
-
-HOT void Client::processMessageData(const MessageData &data)
-{
-  using MessageHandler = void (Client::*)(const MessageData &);
-
-  static constexpr uint8_t size = 'Z' + 1;
-  static constexpr std::array<MessageHandler, size> handlers = []()
-  {
-    std::array<MessageHandler, size> handlers{};
-    handlers['A'] = &Client::handleNewOrder;
-    handlers['D'] = &Client::handleDeletedOrder;
-    handlers['T'] = &Client::handleSeconds;
-    handlers['R'] = &Client::handleSeriesInfoBasic;
-    handlers['M'] = &Client::handleSeriesInfoBasicCombination;
-    handlers['L'] = &Client::handleTickSizeData;
-    handlers['S'] = &Client::handleSystemEvent;
-    handlers['O'] = &Client::handleTradingStatus;
-    handlers['E'] = &Client::handleExecutionNotice;
-    handlers['C'] = &Client::handleExecutionNoticeWithTradeInfo;
-    handlers['Z'] = &Client::handleEquilibriumPrice;
-    handlers['G'] = &Client::handleSnapshotCompletion;
-    return handlers;
-  }();
-
-  (this->*handlers[data.type])(data);
 }
 
 COLD void Client::handleSnapshotCompletion(const MessageData &data)
@@ -349,126 +326,4 @@ COLD void Client::handleSnapshotCompletion(const MessageData &data)
   const auto &snapshot_completion = data.snapshot_completion;
   sequence_number = std::stoull(snapshot_completion.sequence);
   status = UPDATING;
-}
-
-HOT void Client::handleNewOrder(const MessageData &data)
-{
-  const auto &new_order = data.new_order;
-  const int32_t price = utils::to_host(new_order.price);
-
-  using Handler = void (Client::*)(const MessageData &);
-  static constexpr Handler handlers[2] = {
-    &Client::handleNewLimitOrder,
-    &Client::handleNewMarketOrder
-  };
-
-  const bool is_market = (price == INT32_MIN);
-  (this->*handlers[is_market])(data);
-}
-
-HOT void Client::handleNewLimitOrder(const MessageData &data)
-{
-  const auto &new_order = data.new_order;
-  const int32_t price = utils::to_host(new_order.price);
-  const uint32_t book_id = utils::to_host(new_order.orderbook_id);
-  const uint64_t order_id = utils::to_host(new_order.order_id);
-  const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side);
-  const uint64_t qty = utils::to_host(new_order.quantity);
-
-  static constexpr std::equal_to<uint32_t> comp{};
-  const auto it = utils::find(order_books.ids, book_id, comp);
-  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
-  order_books.books[idx].addOrder(order_id, side, price, qty);
-}
-
-HOT void Client::handleNewMarketOrder(UNUSED const MessageData &data)
-{
-}
-
-HOT void Client::handleDeletedOrder(const MessageData &data)
-{
-  const auto &deleted_order = data.deleted_order;
-  const uint32_t book_id = utils::to_host(deleted_order.orderbook_id);
-  const uint64_t order_id = utils::to_host(deleted_order.order_id);
-  const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side);
-
-  static constexpr std::equal_to<uint32_t> comp{};
-  const auto it = utils::find(order_books.ids, book_id, comp);
-  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
-  order_books.books[idx].removeOrder(order_id, side);  
-}
-
-HOT void Client::handleExecutionNotice(const MessageData &data)
-{
-  const auto &execution_notice = data.execution_notice;
-  const uint32_t book_id = utils::to_host(execution_notice.orderbook_id);
-  const uint64_t order_id = utils::to_host(execution_notice.order_id);
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
-  const uint64_t qty = utils::to_host(execution_notice.executed_quantity);
-
-  static constexpr std::equal_to<uint32_t> comp{};
-  const auto it = utils::find(order_books.ids, book_id, comp);
-  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
-  order_books.books[idx].executeOrder(order_id, resting_side, qty);
-}
-
-HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
-{
-  const auto &execution_notice = data.execution_notice_with_trade_info;
-  const uint32_t book_id = utils::to_host(execution_notice.orderbook_id);
-  const uint64_t order_id = utils::to_host(execution_notice.order_id);
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
-  const uint64_t qty = utils::to_host(execution_notice.executed_quantity);
-  const int32_t price = utils::to_host(execution_notice.trade_price);
-
-  static constexpr std::equal_to<uint32_t> comp{};
-  const auto it = utils::find(order_books.ids, book_id, comp);
-  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
-  order_books.books[idx].removeOrder(order_id, resting_side, price, qty);
-}
-
-COLD void Client::handleEquilibriumPrice(const MessageData &data)
-{
-  const auto &equilibrium_price = data.ep;
-  const uint32_t book_id = utils::to_host(equilibrium_price.orderbook_id);
-  const int32_t price = utils::to_host(equilibrium_price.equilibrium_price);
-  const uint64_t bid_qty = utils::to_host(equilibrium_price.available_bid_quantity);
-  const uint64_t ask_qty = utils::to_host(equilibrium_price.available_ask_quantity);
-
-  static constexpr std::equal_to<uint32_t> comp{};
-  const auto it = utils::find(order_books.ids, book_id, comp);
-  const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
-  order_books.books[idx].setEquilibrium(price, bid_qty, ask_qty);
-}
-
-HOT void Client::handleSeconds(UNUSED const MessageData &data)
-{
-}
-
-COLD void Client::handleSeriesInfoBasic(const MessageData &data)
-{
-  const auto &series_info_basic = data.series_info_basic;
-  const uint32_t book_id = utils::to_host(series_info_basic.orderbook_id);
-
-  order_books.ids.push_back(book_id);
-  order_books.books.emplace_back(OrderBook());
-}
-
-COLD void Client::handleSeriesInfoBasicCombination(UNUSED const MessageData &data)
-{
-}
-
-COLD void Client::handleTickSizeData(UNUSED const MessageData &data)
-{
-}
-
-COLD void Client::handleSystemEvent(UNUSED const MessageData &data)
-{
-}
-
-COLD void Client::handleTradingStatus(UNUSED const MessageData &data)
-{
-  //"M_ZARABA", "A_ZARABA_E", "A_ZARABA_E2", "N_ZARABA", "A_ZARABA"
-  // if (status[2] == 'Z')
-  //   resumeTrading();
 }

@@ -9,16 +9,20 @@ last edited: 2025-04-03 21:37:23
 
 ================================================================================*/
 
+#pragma once
+
 #include <cstdint>
 #include <vector>
 #include <immintrin.h>
 
 #include "utils.hpp"
-#include "simd_utils.hpp"
 #include "macros.hpp"
 
+namespace utils
+{
+
 template <typename T, typename Comparator>
-typename std::vector<T>::const_iterator utils::find(const std::vector<T> &vec, const T &elem, const Comparator &comp)
+typename std::vector<T>::const_iterator find(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
@@ -33,7 +37,7 @@ typename std::vector<T>::const_iterator utils::find(const std::vector<T> &vec, c
   const bool safe = (remaining >= chunk_size);
   PREFETCH_R(it + chunk_size * safe, 0);
 
-  uint8_t misalignment = misalignment_forwards(it, 64);
+  uint8_t misalignment = ::simd::misalignment_forwards(it, 64);
   misalignment -= (misalignment > remaining) * (misalignment - remaining);
 
   bool keep_looking = (misalignment > 0);
@@ -51,8 +55,8 @@ typename std::vector<T>::const_iterator utils::find(const std::vector<T> &vec, c
     return vec.end() - remaining;
 
 #if defined(__AVX512F__)
-  const __m512i elem_vec = create_simd_vector<__m512i, T>(elem);
-  constexpr int opcode = get_simd_opcode<T, Comparator>();
+  const __m512i elem_vec = ::simd::create_vector<__m512i, T>(elem);
+  constexpr int opcode = ::simd::get_opcode<T, Comparator>();
   __mmask64 mask = 0;
 
   keep_looking = (remaining >= chunk_size);
@@ -66,7 +70,7 @@ typename std::vector<T>::const_iterator utils::find(const std::vector<T> &vec, c
 
     PREFETCH_R(it + chunk_size * keep_looking, 0);
 
-    mask = compare_simd<__m512i, T>(chunk, elem_vec, opcode);
+    mask = ::simd::compare<__m512i, T>(chunk, elem_vec, opcode);
     keep_looking &= !mask;
   }
   if (LIKELY(mask))
@@ -90,7 +94,7 @@ typename std::vector<T>::const_iterator utils::find(const std::vector<T> &vec, c
 }
 
 template <typename T, typename Comparator>
-typename std::vector<T>::iterator utils::rfind(const std::vector<T> &vec, const T &elem, const Comparator &comp)
+typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
@@ -106,7 +110,7 @@ typename std::vector<T>::iterator utils::rfind(const std::vector<T> &vec, const 
   const bool safe = (remaining >= chunk_size);
   PREFETCH_R(it - chunk_size * safe, 0);
 
-  uint8_t misalignment = misalignment_backwards(it, 64);
+  uint8_t misalignment = ::simd::misalignment_backwards(it, 64);
   misalignment -= (misalignment > remaining) * (misalignment - remaining);
 
   keep_looking = (misalignment > 0);
@@ -124,8 +128,8 @@ typename std::vector<T>::iterator utils::rfind(const std::vector<T> &vec, const 
     return vec.begin() + remaining;
 
 #if defined(__AVX512F__)
-  const __m512i elem_vec = create_simd_vector<__m512i, T>(elem);
-  constexpr int opcode = get_simd_opcode<T, Comparator>();
+  const __m512i elem_vec = ::simd::create_vector<__m512i, T>(elem);
+  constexpr int opcode = ::simd::get_opcode<T, Comparator>();
   __mmask64 mask = 0;
 
   keep_looking = (remaining >= chunk_size);
@@ -139,7 +143,7 @@ typename std::vector<T>::iterator utils::rfind(const std::vector<T> &vec, const 
 
     PREFETCH_R(it - chunk_size * keep_looking, 0);
 
-    mask = compare_simd<__m512i, T>(chunk, elem_vec, opcode);
+    mask = ::simd::compare<__m512i, T>(chunk, elem_vec, opcode);
     keep_looking &= !mask;
   }
 
@@ -164,9 +168,9 @@ typename std::vector<T>::iterator utils::rfind(const std::vector<T> &vec, const 
 }
 
 template <typename T>
-consteval T utils::to_host(const T &value) noexcept
+T to_host(const T &value) noexcept
 {
-  static_assert(std::is_numeric<T>::value, "T must be a numeric type");
+  static_assert(std::is_arithmetic<T>::value, "T must be a numeric type");
 
   if constexpr (sizeof(T) == 2)
     return be16toh(value);
@@ -174,14 +178,14 @@ consteval T utils::to_host(const T &value) noexcept
     return be32toh(value);
   if constexpr (sizeof(T) == 8)
     return be64toh(value);
-  else
-    static_assert(false, "Unsupported type size");
+  
+  UNREACHABLE;
 }
 
 template <typename T>
-consteval T utils::to_network(const T &value) noexcept
+T to_network(const T &value) noexcept
 {
-  static_assert(std::is_numeric<T>::value, "T must be a numeric type");
+  static_assert(std::is_arithmetic<T>::value, "T must be a numeric type");
 
   if constexpr (sizeof(T) == 2)
     return htobe16(value);
@@ -189,6 +193,8 @@ consteval T utils::to_network(const T &value) noexcept
     return htobe32(value);
   if constexpr (sizeof(T) == 8)
     return htobe64(value);
-  else
-    static_assert(false, "Unsupported type size");
+
+  UNREACHABLE;
+}
+
 }
