@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-03 20:16:29                                                
+last edited: 2025-04-03 21:37:23                                                
 
 ================================================================================*/
 
@@ -93,7 +93,7 @@ ALWAYS_INLINE inline constexpr static VectorType create_simd_vector(const Scalar
 }
 
 template <typename ScalarType, typename Comparator>
-ALWAYS_INLINE inline static int get_simd_opcode(void)
+ALWAYS_INLINE inline static consteval int get_simd_opcode(void)
 {
   if constexpr (std::is_integral_v<ScalarType>)
   {

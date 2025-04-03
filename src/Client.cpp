@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-03 20:16:29                                                
+last edited: 2025-04-03 21:37:23                                                
 
 ================================================================================*/
 
@@ -21,8 +21,6 @@ last edited: 2025-04-03 20:16:29
 #include "utils.hpp"
 #include "macros.hpp"
 #include "error.hpp"
-
-//TODO make Client() independent from config.hpp
 
 COLD Client::Client(const std::string_view username, const std::string_view password) noexcept :
   order_books(),
@@ -60,7 +58,7 @@ COLD sockaddr_in Client::createAddress(const std::string_view ip_str, const std:
 
   address.sin_addr.s_addr = inet_addr(ip);
   address.sin_family = AF_INET;
-  address.sin_port = htobe16(port);
+  address.sin_port = utils::to_network(port);
 
   return address;
 }
@@ -170,8 +168,8 @@ HOT void Client::updateOrderbooks(void)
     while(packets_count--)
     {
       PREFETCH_R(packet + 1, 1);
-      const uint64_t sequence_number = be64toh(packet->header.sequence_number);
-      const uint16_t message_count = be16toh(packet->header.message_count);
+      const uint64_t sequence_number = utils::to_host(packet->header.sequence_number);
+      const uint16_t message_count = utils::to_host(packet->header.message_count);
 
       error |= (sequence_number != this->sequence_number);
       CHECK_ERROR;
@@ -192,7 +190,7 @@ COLD void Client::sendLogin(void) const
   constexpr uint8_t body_length = sizeof(body.type) + sizeof(body.login_request);
   constexpr uint16_t packet_size = sizeof(packet.body_length) + body_length;
 
-  packet.body_length = htobe16(body_length);
+  packet.body_length = utils::to_network(body_length);
 
   body.type = 'L';
   std::memset(&body.login_request, ' ', sizeof(body.login_request));
@@ -209,7 +207,7 @@ COLD void Client::recvLogin(void)
   SoupBinTCPPacket packet{};
 
   error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), MSG_WAITALL) == -1;
-  const uint16_t body_length = be16toh(packet.body_length);
+  const uint16_t body_length = utils::to_host(packet.body_length);
   error |= recv(tcp_sock_fd, &packet.body, body_length, MSG_WAITALL) == -1;
 
   CHECK_ERROR;
@@ -234,7 +232,7 @@ COLD void Client::recvSnapshot(void)
   SoupBinTCPPacket &packet = *reinterpret_cast<SoupBinTCPPacket *>(buffer.data());
 
   error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), MSG_WAITALL) == -1;
-  const uint16_t body_length = be16toh(packet.body_length);
+  const uint16_t body_length = utils::to_host(packet.body_length);
   error |= recv(tcp_sock_fd, &packet.body, body_length, MSG_WAITALL) == -1;
 
   CHECK_ERROR;
@@ -257,8 +255,8 @@ COLD void Client::recvSnapshot(void)
 
 COLD void Client::sendLogout(void) const
 {
-  const SoupBinTCPPacket packet = {
-    .body_length = htobe16(1),
+  constexpr SoupBinTCPPacket packet = {
+    .body_length = utils::to_network(1),
     .body = {
       .type = 'Z',
       .logout_request{}
@@ -272,8 +270,8 @@ COLD void Client::sendLogout(void) const
 
 COLD void Client::processSnapshot(const char *restrict buffer, const uint16_t buffer_size)
 {
-  constexpr uint8_t size = 'Z' + 1;
-  constexpr std::array<uint16_t, size> data_lengths = []()
+  static constexpr uint8_t size = 'Z' + 1;
+  static constexpr std::array<uint16_t, size> data_lengths = []()
   {
     std::array<uint16_t, size> data_lengths{};
     data_lengths['A'] = sizeof(MessageData::new_order);
@@ -311,7 +309,7 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
   while (blocks_count--)
   {
     const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(buffer);
-    const uint16_t length = sizeof(block.length) + be16toh(block.length);
+    const uint16_t length = sizeof(block.length) + utils::to_host(block.length);
 
     PREFETCH_R(buffer + length, 1);
     processMessageData(block.data);
@@ -324,8 +322,8 @@ HOT void Client::processMessageData(const MessageData &data)
 {
   using MessageHandler = void (Client::*)(const MessageData &);
 
-  constexpr uint8_t size = 'Z' + 1;
-  constexpr std::array<MessageHandler, size> handlers = []()
+  static constexpr uint8_t size = 'Z' + 1;
+  static constexpr std::array<MessageHandler, size> handlers = []()
   {
     std::array<MessageHandler, size> handlers{};
     handlers['A'] = &Client::handleNewOrder;
@@ -356,27 +354,42 @@ COLD void Client::handleSnapshotCompletion(const MessageData &data)
 HOT void Client::handleNewOrder(const MessageData &data)
 {
   const auto &new_order = data.new_order;
-  const uint32_t book_id = be32toh(new_order.orderbook_id);
-  const uint64_t order_id = be64toh(new_order.order_id);
+  const int32_t price = utils::to_host(new_order.price);
+
+  using Handler = void (Client::*)(const MessageData &);
+  static constexpr Handler handlers[2] = {
+    &Client::handleNewLimitOrder,
+    &Client::handleNewMarketOrder
+  };
+
+  const bool is_market = (price == INT32_MIN);
+  (this->*handlers[is_market])(data);
+}
+
+HOT void Client::handleNewLimitOrder(const MessageData &data)
+{
+  const auto &new_order = data.new_order;
+  const int32_t price = utils::to_host(new_order.price);
+  const uint32_t book_id = utils::to_host(new_order.orderbook_id);
+  const uint64_t order_id = utils::to_host(new_order.order_id);
   const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side);
-  const int32_t price = be32toh(new_order.price);
-  const uint64_t qty = be64toh(new_order.quantity);
+  const uint64_t qty = utils::to_host(new_order.quantity);
 
-  //TODO branchless, not predictable at all (call handleMarketOrder which is a no-op and handleLimitOrder)
-  if (price == INT32_MIN)
-    return;
-
-  static constexpr std::equal_to<uint32_t> comp{}; 
+  static constexpr std::equal_to<uint32_t> comp{};
   const auto it = utils::find(order_books.ids, book_id, comp);
   const uint32_t idx = std::distance(order_books.ids.cbegin(), it);
   order_books.books[idx].addOrder(order_id, side, price, qty);
 }
 
+HOT void Client::handleNewMarketOrder(UNUSED const MessageData &data)
+{
+}
+
 HOT void Client::handleDeletedOrder(const MessageData &data)
 {
   const auto &deleted_order = data.deleted_order;
-  const uint32_t book_id = be32toh(deleted_order.orderbook_id);
-  const uint64_t order_id = be64toh(deleted_order.order_id);
+  const uint32_t book_id = utils::to_host(deleted_order.orderbook_id);
+  const uint64_t order_id = utils::to_host(deleted_order.order_id);
   const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side);
 
   static constexpr std::equal_to<uint32_t> comp{};
@@ -388,10 +401,10 @@ HOT void Client::handleDeletedOrder(const MessageData &data)
 HOT void Client::handleExecutionNotice(const MessageData &data)
 {
   const auto &execution_notice = data.execution_notice;
-  const uint32_t book_id = be32toh(execution_notice.orderbook_id);
-  const uint64_t order_id = be64toh(execution_notice.order_id);
+  const uint32_t book_id = utils::to_host(execution_notice.orderbook_id);
+  const uint64_t order_id = utils::to_host(execution_notice.order_id);
   const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
-  const uint64_t qty = be64toh(execution_notice.executed_quantity);
+  const uint64_t qty = utils::to_host(execution_notice.executed_quantity);
 
   static constexpr std::equal_to<uint32_t> comp{};
   const auto it = utils::find(order_books.ids, book_id, comp);
@@ -402,11 +415,11 @@ HOT void Client::handleExecutionNotice(const MessageData &data)
 HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
 {
   const auto &execution_notice = data.execution_notice_with_trade_info;
-  const uint32_t book_id = be32toh(execution_notice.orderbook_id);
-  const uint64_t order_id = be64toh(execution_notice.order_id);
+  const uint32_t book_id = utils::to_host(execution_notice.orderbook_id);
+  const uint64_t order_id = utils::to_host(execution_notice.order_id);
   const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution_notice.side == 'S');
-  const uint64_t qty = be64toh(execution_notice.executed_quantity);
-  const int32_t price = be32toh(execution_notice.trade_price);
+  const uint64_t qty = utils::to_host(execution_notice.executed_quantity);
+  const int32_t price = utils::to_host(execution_notice.trade_price);
 
   static constexpr std::equal_to<uint32_t> comp{};
   const auto it = utils::find(order_books.ids, book_id, comp);
@@ -417,10 +430,10 @@ HOT void Client::handleExecutionNoticeWithTradeInfo(const MessageData &data)
 COLD void Client::handleEquilibriumPrice(const MessageData &data)
 {
   const auto &equilibrium_price = data.ep;
-  const uint32_t book_id = be32toh(equilibrium_price.orderbook_id);
-  const int32_t price = be32toh(equilibrium_price.equilibrium_price);
-  const uint64_t bid_qty = be64toh(equilibrium_price.available_bid_quantity);
-  const uint64_t ask_qty = be64toh(equilibrium_price.available_ask_quantity);
+  const uint32_t book_id = utils::to_host(equilibrium_price.orderbook_id);
+  const int32_t price = utils::to_host(equilibrium_price.equilibrium_price);
+  const uint64_t bid_qty = utils::to_host(equilibrium_price.available_bid_quantity);
+  const uint64_t ask_qty = utils::to_host(equilibrium_price.available_ask_quantity);
 
   static constexpr std::equal_to<uint32_t> comp{};
   const auto it = utils::find(order_books.ids, book_id, comp);
@@ -435,7 +448,7 @@ HOT void Client::handleSeconds(UNUSED const MessageData &data)
 COLD void Client::handleSeriesInfoBasic(const MessageData &data)
 {
   const auto &series_info_basic = data.series_info_basic;
-  const uint32_t book_id = be32toh(series_info_basic.orderbook_id);
+  const uint32_t book_id = utils::to_host(series_info_basic.orderbook_id);
 
   order_books.ids.push_back(book_id);
   order_books.books.emplace_back(OrderBook());

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-03 20:16:29                                                
+last edited: 2025-04-03 21:37:23                                                
 
 ================================================================================*/
 
@@ -59,6 +59,9 @@ class Client
     void handleExecutionNotice(const MessageData &data);
     void handleExecutionNoticeWithTradeInfo(const MessageData &data);
     void handleEquilibriumPrice(const MessageData &data);
+    
+    void handleNewLimitOrder(const MessageData &data);
+    void handleNewMarketOrder(const MessageData &data);
 
     struct
     {

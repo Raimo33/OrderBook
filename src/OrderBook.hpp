@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-03 20:16:29                                                
+last edited: 2025-04-03 21:37:23                                                
 
 ================================================================================*/
 
@@ -50,7 +50,7 @@ class OrderBook
     {
       //sorted with best price last. prices[i] and cumulative_qtys[i] are the same price level
       std::vector<int32_t> prices;
-      std::vector<int32_t> cumulative_qtys;
+      std::vector<uint64_t> cumulative_qtys;
 
       //unsorted, order_ids[i][j] and order_qtys[i][j] are the same order
       std::vector<std::vector<uint64_t>> order_ids;

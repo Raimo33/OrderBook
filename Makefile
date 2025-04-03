@@ -1,6 +1,6 @@
 TARGET := OrderBook
 
-SRCS := $(addprefix src/, main.cpp Client.cpp OrderBook.cpp error.cpp)
+SRCS := $(addprefix src/, main.cpp Client.cpp OrderBook.cpp utils.cpp simd_utils.cpp error.cpp)
 OBJS := $(SRCS:.cpp=.o)
 DEPS := $(OBJS:.o=.d)
 

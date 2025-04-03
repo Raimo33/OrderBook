@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-03 20:16:29                                                
+last edited: 2025-04-03 21:37:23                                                
 
 ================================================================================*/
 
@@ -161,4 +161,34 @@ typename std::vector<T>::iterator utils::rfind(const std::vector<T> &vec, const 
   }
 
   return remaining ? vec.begin() + remaining : vec.end();
+}
+
+template <typename T>
+consteval T utils::to_host(const T &value) noexcept
+{
+  static_assert(std::is_numeric<T>::value, "T must be a numeric type");
+
+  if constexpr (sizeof(T) == 2)
+    return be16toh(value);
+  if constexpr (sizeof(T) == 4)
+    return be32toh(value);
+  if constexpr (sizeof(T) == 8)
+    return be64toh(value);
+  else
+    static_assert(false, "Unsupported type size");
+}
+
+template <typename T>
+consteval T utils::to_network(const T &value) noexcept
+{
+  static_assert(std::is_numeric<T>::value, "T must be a numeric type");
+
+  if constexpr (sizeof(T) == 2)
+    return htobe16(value);
+  if constexpr (sizeof(T) == 4)
+    return htobe32(value);
+  if constexpr (sizeof(T) == 8)
+    return htobe64(value);
+  else
+    static_assert(false, "Unsupported type size");
 }

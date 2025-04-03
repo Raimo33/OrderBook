@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-03 20:16:29                                                
+last edited: 2025-04-03 21:37:23                                                
 
 ================================================================================*/
 
@@ -19,12 +19,12 @@ extern volatile bool error;
 
 HOT inline OrderBook::BookEntry OrderBook::getBestBid(void) const noexcept
 {
-  return {price_arrays[BID].back(), qty_arrays[BID].back()};
+  return {bids.prices.back(), bids.cumulative_qtys.back()};
 }
 
 HOT inline OrderBook::BookEntry OrderBook::getBestAsk(void) const noexcept
 {
-  return {price_arrays[ASK].back(), qty_arrays[ASK].back()};
+  return {asks.prices.back(), asks.cumulative_qtys.back()};
 }
 
 HOT inline OrderBook::BookEntry OrderBook::getEquilibriumPriceBid(void) const noexcept
