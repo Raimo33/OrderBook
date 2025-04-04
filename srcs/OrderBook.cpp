@@ -5,9 +5,11 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-05 00:18:43                                                
+last edited: 2025-04-05 01:04:21                                                
 
 ================================================================================*/
+
+#include <ranges>
 
 #include "OrderBook.hpp"
 #include "utils/utils.hpp"
@@ -43,9 +45,9 @@ COLD OrderBook::~OrderBook(void)
 HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t price, const uint64_t qty)
 {
   using Handler = void (OrderBook::*)(const uint64_t, const int32_t, const uint64_t);
-  static const Handler handlers[] = {
-    [BID] = &OrderBook::addOrderBid,
-    [ASK] = &OrderBook::addOrderAsk
+  static constexpr Handler handlers[] = {
+    &OrderBook::addOrderBid,
+    &OrderBook::addOrderAsk
   };
 
   (this->*handlers[side])(id, price, qty);
@@ -96,9 +98,9 @@ HOT void OrderBook::addOrder(PriceLevels &levels, const uint64_t id, const int32
 HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
 {
   using Handler = void (OrderBook::*)(const uint64_t);
-  static const Handler handlers[] = {
-    [BID] = &OrderBook::removeOrderBid,
-    [ASK] = &OrderBook::removeOrderAsk
+  static constexpr Handler handlers[] = {
+    &OrderBook::removeOrderBid,
+    &OrderBook::removeOrderAsk
   };
 
   (this->*handlers[side])(id);
@@ -116,21 +118,24 @@ HOT ALWAYS_INLINE inline void OrderBook::removeOrderAsk(const uint64_t id)
 
 HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
 {
-  for (auto &order_ids : levels.order_ids | std::views::reverse)
+  for (auto order_ids_it = levels.order_ids.rbegin(); order_ids_it != levels.order_ids.rend(); ++order_ids_it)
   {
+    auto &order_ids = *order_ids_it;
+
     static constexpr std::equal_to<uint64_t> order_ids_cmp;
-    const auto order_ids_it = utils::rfind(order_ids, id, order_ids_cmp);
+    const auto order_it = utils::rfind(order_ids, id, order_ids_cmp);
 
-    if (LIKELY(order_ids_it == order_ids.cend()))
+    if (LIKELY(order_it == order_ids_it->cend()))
       continue;
-    
-    const size_t price_index = std::distance(levels.order_ids.cbegin(), order_ids);
-    const size_t order_index = std::distance(order_ids.cbegin(), order_ids_it);
 
+    const size_t price_index = std::distance(levels.order_ids.cbegin(), order_ids_it);
+    const size_t order_index = std::distance(order_ids_it->cbegin(), order_it);
+
+    auto &price = levels.prices[price_index];
+    auto &cumulative_qty = levels.cumulative_qtys[price_index];
     auto &order_qtys = levels.order_qtys[price_index];
 
     const uint64_t qty = order_qtys[order_index];
-    auto &cumulative_qty = levels.cumulative_qtys[price_index];
 
     cumulative_qty -= qty;
     if (LIKELY(cumulative_qty > 0))
@@ -144,20 +149,18 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
     {
       levels.prices.erase(levels.prices.cbegin() + price_index);
       levels.cumulative_qtys.erase(levels.cumulative_qtys.cbegin() + price_index);
-      levels.order_ids.erase(levels.order_ids.cbegin() + price_index);
+      levels.order_ids.erase(order_ids_it);
       levels.order_qtys.erase(levels.order_qtys.cbegin() + price_index);
     }
   }
-
-
 }
 
 HOT void OrderBook::removeOrder(const uint64_t id, const Side side, const int32_t price, const uint64_t qty)
 {
   using Handler = void (OrderBook::*)(const uint64_t, const int32_t, const uint64_t);
-  static const Handler handlers[] = {
-    [BID] = &OrderBook::removeOrderBid,
-    [ASK] = &OrderBook::removeOrderAsk
+  static constexpr Handler handlers[] = {
+    &OrderBook::removeOrderBid,
+    &OrderBook::removeOrderAsk
   };
 
   (this->*handlers[side])(id, price, qty);
@@ -212,9 +215,9 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id, const in
 HOT void OrderBook::executeOrder(const uint64_t id, const Side side, const uint64_t qty)
 {
   using Handler = void (OrderBook::*)(const uint64_t, uint64_t);
-  static const Handler handlers[] = {
-    [BID] = &OrderBook::executeOrderBid,
-    [ASK] = &OrderBook::executeOrderAsk
+  static constexpr Handler handlers[] = {
+    &OrderBook::executeOrderBid,
+    &OrderBook::executeOrderAsk
   };
 
   (this->*handlers[side])(id, qty);

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-04 21:21:27                                                
+last edited: 2025-04-05 01:04:21                                                
 
 ================================================================================*/
 
@@ -22,7 +22,7 @@ namespace utils
 {
 
 template <typename T, typename Comparator>
-typename std::vector<T>::const_iterator find(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
+HOT typename std::vector<T>::const_iterator find(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
@@ -94,7 +94,7 @@ typename std::vector<T>::const_iterator find(const std::vector<T> &vec, const T 
 }
 
 template <typename T, typename Comparator>
-typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
+HOT typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
