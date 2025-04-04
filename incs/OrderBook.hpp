@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-04 23:11:54                                                
+last edited: 2025-04-05 00:18:43                                                
 
 ================================================================================*/
 
@@ -69,7 +69,9 @@ class OrderBook
     template <typename Compare>
     void addOrder(PriceLevels &levels, const uint64_t id, const int32_t price, const uint64_t qty);
 
-    //TODO
+    void removeOrderBid(const uint64_t id);
+    void removeOrderAsk(const uint64_t id);
+    void removeOrder(PriceLevels &levels, const uint64_t id);
 
     void removeOrderBid(const uint64_t id, const int32_t price, const uint64_t qty);
     void removeOrderAsk(const uint64_t id, const int32_t price, const uint64_t qty);
