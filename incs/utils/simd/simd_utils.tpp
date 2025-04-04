@@ -1,3 +1,14 @@
+/*================================================================================
+
+File: simd_utils.tpp                                                            
+Creator: Claudio Raimondi                                                       
+Email: claudio.raimondi@pm.me                                                   
+
+created at: 2025-04-04 21:21:27                                                 
+last edited: 2025-04-04 21:21:27                                                
+
+================================================================================*/
+
 #pragma once
 
 #include <immintrin.h>
@@ -8,7 +19,7 @@
 #include "macros.hpp"
 
 template <typename VectorType, typename ScalarType>
-ALWAYS_INLINE inline constexpr static VectorType utils::simd::create_vector(const ScalarType &elem)
+ALWAYS_INLINE inline consteval VectorType utils::simd::create_vector(const ScalarType &elem)
 {
 #if defined(__AVX512F__)
   if constexpr (std::is_same_v<T, __m512i>)
@@ -81,11 +92,10 @@ ALWAYS_INLINE inline constexpr static VectorType utils::simd::create_vector(cons
       return _mm_set1_pd(elem);
   }
 #endif
-  static_assert(false, "Unsupported type");
 }
 
 template <typename ScalarType, typename Comparator>
-ALWAYS_INLINE inline static consteval int utils::simd::get_opcode(void)
+ALWAYS_INLINE inline consteval int utils::simd::get_opcode(void)
 {
   if constexpr (std::is_integral_v<ScalarType>)
   {
@@ -117,11 +127,10 @@ ALWAYS_INLINE inline static consteval int utils::simd::get_opcode(void)
     if constexpr (std::is_same_v<Comparator, std::greater>)
       return _CMP_GT_OQ;
   }
-  static_assert(false, "Unsupported type");
 }
 
 template <typename VectorType, typename ScalarType>
-ALWAYS_INLINE inline static __mmask64 utils::simd::compare(const VectorType &chunk, const VectorType &elem_vec, const int opcode)
+ALWAYS_INLINE inline __mmask64 utils::simd::compare(const VectorType &chunk, const VectorType &elem_vec, const int opcode)
 {
 #if defined(__AVX512F__)
   if constexpr (std::is_same<VectorType, __m512i>::value)
@@ -162,7 +171,10 @@ ALWAYS_INLINE inline static __mmask64 utils::simd::compare(const VectorType &chu
 #endif
 
 #if defined (__AVX__)
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wignored-attributes"
   if constexpr (std::is_same<VectorType, __m256i>::value)
+  #pragma GCC diagnostic pop
   {
     if constexpr (std::is_integral_v<ScalarType>)
     {
@@ -200,7 +212,10 @@ ALWAYS_INLINE inline static __mmask64 utils::simd::compare(const VectorType &chu
 #endif
 
 #if defined (__SSE2__)
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wignored-attributes"
   if constexpr (std::is_same<VectorType, __m128i>::value)
+  #pragma GCC diagnostic pop
   {
     if constexpr (std::is_integral_v<ScalarType>)
     {
@@ -236,5 +251,4 @@ ALWAYS_INLINE inline static __mmask64 utils::simd::compare(const VectorType &chu
     }
   }
 #endif
-  static_assert(false, "Unsupported type");
 }

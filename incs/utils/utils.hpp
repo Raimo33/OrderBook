@@ -5,13 +5,15 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-03 21:37:23                                                
+last edited: 2025-04-04 21:21:27                                                
 
 ================================================================================*/
 
 #pragma once
 
 #include <vector>
+
+#include "simd/simd_utils.hpp"
 
 namespace utils
 {

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-03 21:37:23                                                
+last edited: 2025-04-04 21:21:27                                                
 
 ================================================================================*/
 
@@ -327,3 +327,5 @@ COLD void Client::handleSnapshotCompletion(const MessageData &data)
   sequence_number = std::stoull(snapshot_completion.sequence);
   status = UPDATING;
 }
+
+MessageHandler Client::message_handler{};

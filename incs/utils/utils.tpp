@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-03 21:37:23                                                
+last edited: 2025-04-04 21:21:27                                                
 
 ================================================================================*/
 
@@ -37,7 +37,7 @@ typename std::vector<T>::const_iterator find(const std::vector<T> &vec, const T 
   const bool safe = (remaining >= chunk_size);
   PREFETCH_R(it + chunk_size * safe, 0);
 
-  uint8_t misalignment = ::simd::misalignment_forwards(it, 64);
+  uint8_t misalignment = utils::simd::misalignment_forwards(it, 64);
   misalignment -= (misalignment > remaining) * (misalignment - remaining);
 
   bool keep_looking = (misalignment > 0);
@@ -55,8 +55,8 @@ typename std::vector<T>::const_iterator find(const std::vector<T> &vec, const T 
     return vec.end() - remaining;
 
 #if defined(__AVX512F__)
-  const __m512i elem_vec = ::simd::create_vector<__m512i, T>(elem);
-  constexpr int opcode = ::simd::get_opcode<T, Comparator>();
+  const __m512i elem_vec = utils::simd::create_vector<__m512i, T>(elem);
+  constexpr int opcode = utils::simd::get_opcode<T, Comparator>();
   __mmask64 mask = 0;
 
   keep_looking = (remaining >= chunk_size);
@@ -70,7 +70,7 @@ typename std::vector<T>::const_iterator find(const std::vector<T> &vec, const T 
 
     PREFETCH_R(it + chunk_size * keep_looking, 0);
 
-    mask = ::simd::compare<__m512i, T>(chunk, elem_vec, opcode);
+    mask = utils::simd::compare<__m512i, T>(chunk, elem_vec, opcode);
     keep_looking &= !mask;
   }
   if (LIKELY(mask))
@@ -110,7 +110,7 @@ typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &elem
   const bool safe = (remaining >= chunk_size);
   PREFETCH_R(it - chunk_size * safe, 0);
 
-  uint8_t misalignment = ::simd::misalignment_backwards(it, 64);
+  uint8_t misalignment = utils::simd::misalignment_backwards(it, 64);
   misalignment -= (misalignment > remaining) * (misalignment - remaining);
 
   keep_looking = (misalignment > 0);
@@ -128,8 +128,8 @@ typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &elem
     return vec.begin() + remaining;
 
 #if defined(__AVX512F__)
-  const __m512i elem_vec = ::simd::create_vector<__m512i, T>(elem);
-  constexpr int opcode = ::simd::get_opcode<T, Comparator>();
+  const __m512i elem_vec = utils::simd::create_vector<__m512i, T>(elem);
+  constexpr int opcode = utils::simd::get_opcode<T, Comparator>();
   __mmask64 mask = 0;
 
   keep_looking = (remaining >= chunk_size);
@@ -143,7 +143,7 @@ typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &elem
 
     PREFETCH_R(it - chunk_size * keep_looking, 0);
 
-    mask = ::simd::compare<__m512i, T>(chunk, elem_vec, opcode);
+    mask = utils::simd::compare<__m512i, T>(chunk, elem_vec, opcode);
     keep_looking &= !mask;
   }
 

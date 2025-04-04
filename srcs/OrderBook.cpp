@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-03 20:16:29                                                
+last edited: 2025-04-04 21:21:27                                                
 
 ================================================================================*/
 
@@ -18,7 +18,8 @@ extern volatile bool error;
 
 COLD OrderBook::OrderBook(void) noexcept :
   equilibrium_price(INT32_MIN),
-  equilibrium_bid_qty(INT32_MIN)
+  equilibrium_bid_qty(0),
+  equilibrium_ask_qty(0)
 {
   bids.prices.push_back(INT32_MIN);
   asks.prices.push_back(INT32_MAX);
@@ -27,29 +28,47 @@ COLD OrderBook::OrderBook(void) noexcept :
 }
 
 COLD OrderBook::OrderBook(OrderBook &&other) noexcept :
+  bids(std::move(other.bids)),
+  asks(std::move(other.asks)),
   equilibrium_price(other.equilibrium_price),
   equilibrium_bid_qty(other.equilibrium_bid_qty),
-  bids(std::move(other.bids)),
-  asks(std::move(other.asks))
+  equilibrium_ask_qty(other.equilibrium_ask_qty)
+{
+}
+
+COLD OrderBook::~OrderBook(void)
 {
 }
 
 HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t price, const uint64_t qty)
 {
+  (void)id;
+  (void)side;
+  (void)price;
+  (void)qty;
   //TODO
 }
 
 HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
 {
+  (void)id;
+  (void)side;
   //TODO
 }
 
 HOT void OrderBook::removeOrder(const uint64_t id, const Side side, const int32_t price, const uint64_t qty)
 {
+  (void)id;
+  (void)side;
+  (void)price;
+  (void)qty;
   //TODO
 }
 
 HOT void OrderBook::executeOrder(const uint64_t id, const Side side, uint64_t qty)
 {
+  (void)id;
+  (void)side;
+  (void)qty;
   //TODO
 }
