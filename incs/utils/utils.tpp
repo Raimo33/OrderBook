@@ -60,7 +60,7 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
   keep_looking &= (remaining >= chunk_size);
   while (keep_looking)
   {
-    const __m512i chunk = _mm512_loadu_si512(it);
+    const __m512i chunk = _mm512_load_si512(it);
 
     remaining -= chunk_size;
     it += chunk_size;
@@ -131,7 +131,7 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
   while (keep_looking)
   {
     it -= chunk_size;
-    const __m512i chunk = _mm512_loadu_si512(it);
+    const __m512i chunk = _mm512_load_si512(it);
 
     remaining -= chunk_size;
     keep_looking = (remaining >= chunk_size);
