@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-04 21:21:27                                                 
-last edited: 2025-04-04 21:21:27                                                
+last edited: 2025-04-05 10:36:57                                                
 
 ================================================================================*/
 
@@ -21,5 +21,5 @@ ALWAYS_INLINE inline uint8_t utils::simd::misalignment_forwards(const void *ptr,
 
 ALWAYS_INLINE inline uint8_t utils::simd::misalignment_backwards(const void *ptr, const uint8_t alignment)
 {
-  return misalignment_backwards(ptr, alignment);
+  return (uintptr_t)(ptr) & (alignment - 1);
 }

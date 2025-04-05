@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-05 01:04:21                                                
+last edited: 2025-04-05 10:36:57                                                
 
 ================================================================================*/
 
@@ -22,7 +22,7 @@ namespace utils
 {
 
 template <typename T, typename Comparator>
-HOT typename std::vector<T>::const_iterator find(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
+HOT ssize_t find(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
@@ -30,7 +30,8 @@ HOT typename std::vector<T>::const_iterator find(const std::vector<T> &vec, cons
   constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
 
   const T *begin = vec.data();
-  size_t remaining = vec.size();
+  const size_t size = vec.size();
+  size_t remaining = size;
   const T *it = begin;
 
   PREFETCH_R(it, 0);
@@ -52,7 +53,7 @@ HOT typename std::vector<T>::const_iterator find(const std::vector<T> &vec, cons
   }
 
   if (misalignment)
-    return vec.end() - remaining;
+    return size - remaining;
 
 #if defined(__AVX512F__)
   const __m512i elem_vec = utils::simd::create_vector<__m512i, T>(elem);
@@ -76,7 +77,7 @@ HOT typename std::vector<T>::const_iterator find(const std::vector<T> &vec, cons
   if (LIKELY(mask))
   {
     const uint8_t matched_idx = __builtin_ctzll(mask);
-    return vec.end() - remaining - chunk_size + matched_idx;
+    return size - (remaining + chunk_size) + matched_idx;
   }
 #endif
 
@@ -90,11 +91,11 @@ HOT typename std::vector<T>::const_iterator find(const std::vector<T> &vec, cons
     keep_looking &= (remaining > 0);
   }
 
-  return vec.end() - remaining;
+  return remaining ? size - remaining : -1;
 }
 
 template <typename T, typename Comparator>
-HOT typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
+HOT ssize_t rfind(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
@@ -125,7 +126,7 @@ HOT typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &
   }
 
   if (misalignment)
-    return vec.begin() + remaining;
+    return remaining;
 
 #if defined(__AVX512F__)
   const __m512i elem_vec = utils::simd::create_vector<__m512i, T>(elem);
@@ -150,7 +151,7 @@ HOT typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &
   if (LIKELY(mask))
   {
     const uint8_t matched_idx = 63 - __builtin_ctzll(mask);
-    return vec.begin() + remaining + matched_idx;
+    return remaining + matched_idx;
   }
 #endif
 
@@ -164,7 +165,7 @@ HOT typename std::vector<T>::iterator rfind(const std::vector<T> &vec, const T &
     keep_looking &= (remaining > 0);
   }
 
-  return remaining ? vec.begin() + remaining : vec.end();
+  return remaining ? remaining : -1;
 }
 
 template <typename T>
