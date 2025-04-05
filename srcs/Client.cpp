@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-04 21:21:27                                                
+last edited: 2025-04-05 11:22:59                                                
 
 ================================================================================*/
 
@@ -162,7 +162,7 @@ HOT void Client::updateOrderbooks(void)
   {
     int8_t packets_count = recvmmsg(udp_sock_fd, mmsgs, MAX_BURST_PACKETS, MSG_WAITFORONE, nullptr);
     error |= packets_count == -1;
-    const Packet *packet = packets;
+    const Packet *packet = (Packet *)ASSUME_ALIGNED(packets, 64);
 
     while(packets_count--)
     {
@@ -186,7 +186,7 @@ COLD void Client::sendLogin(void) const
 {
   SoupBinTCPPacket packet{};
   auto &body = packet.body;
-  constexpr uint8_t body_length = sizeof(body.type) + sizeof(body.login_request);
+  constexpr uint16_t body_length = sizeof(body.type) + sizeof(body.login_request);
   constexpr uint16_t packet_size = sizeof(packet.body_length) + body_length;
 
   packet.body_length = utils::to_network(body_length);
@@ -297,7 +297,7 @@ COLD void Client::processSnapshots(const char *restrict buffer, const uint16_t b
 
     PREFETCH_R(buffer + length, 1);
 
-    if (UNLIKELY(data.type == 'G'))
+    if (data.type == 'G') [[unlikely]]
       handleSnapshotCompletion(data);
     else
       message_handler.handleMessage(data);

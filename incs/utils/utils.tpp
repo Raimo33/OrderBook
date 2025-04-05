@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-05 11:07:01                                                
+last edited: 2025-04-05 11:22:59                                                
 
 ================================================================================*/
 
@@ -74,7 +74,7 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
     mask = utils::simd::compare<__m512i, T>(chunk, elem_vec, opcode);
     keep_looking &= !mask;
   }
-  if (LIKELY(mask))
+  if (mask) [[likely]]
   {
     const uint8_t matched_idx = __builtin_ctzll(mask);
     return size - (remaining + chunk_size) + matched_idx;
@@ -148,7 +148,7 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
     keep_looking &= !mask;
   }
 
-  if (LIKELY(mask))
+  if (mask) [[likely]]
   {
     const uint8_t matched_idx = 63 - __builtin_ctzll(mask);
     return remaining + matched_idx;
@@ -169,9 +169,10 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
 }
 
 template <typename T>
-T to_host(const T &value) noexcept
+HOT ALWAYS_INLINE inline T to_host(const T &value) noexcept
 {
   static_assert(std::is_arithmetic<T>::value, "T must be a numeric type");
+  static_assert(sizeof(T) >= 2, "T must be at least 2 bytes");
 
   if constexpr (sizeof(T) == 2)
     return be16toh(value);
@@ -179,14 +180,15 @@ T to_host(const T &value) noexcept
     return be32toh(value);
   if constexpr (sizeof(T) == 8)
     return be64toh(value);
-  
+
   UNREACHABLE;
 }
 
 template <typename T>
-T to_network(const T &value) noexcept
+HOT ALWAYS_INLINE inline T to_network(const T &value) noexcept
 {
   static_assert(std::is_arithmetic<T>::value, "T must be a numeric type");
+  static_assert(sizeof(T) >= 2, "T must be at least 2 bytes");
 
   if constexpr (sizeof(T) == 2)
     return htobe16(value);

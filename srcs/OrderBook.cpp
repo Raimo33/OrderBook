@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-05 11:07:01                                                
+last edited: 2025-04-05 11:22:59                                                
 
 ================================================================================*/
 
@@ -74,7 +74,7 @@ HOT void OrderBook::addOrder(PriceLevels &levels, const uint64_t id, const int32
   static constexpr Comparator cmp;
   const ssize_t index = utils::rfind(std::span<const int32_t>(prices), price, cmp);
 
-  if (LIKELY(index != -1 && prices[index] == price))
+  if (index != -1 && prices[index] == price) [[likely]]
   {
     cumulative_qtys[index] += qty;
     order_ids[index].push_back(id);
@@ -119,7 +119,7 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
     static constexpr std::equal_to<uint64_t> order_ids_cmp;
     const ssize_t order_index = utils::rfind(std::span<const uint64_t>(order_ids), id, order_ids_cmp);
 
-    if (LIKELY(order_index == -1))
+    if (order_index == -1) [[likely]]
       continue;
 
     const size_t price_index = std::distance(levels.order_ids.begin(), order_ids_it.base()) - 1;
@@ -130,7 +130,7 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
     const uint64_t qty = order_qtys[order_index];
 
     cumulative_qty -= qty;
-    if (LIKELY(cumulative_qty > 0))
+    if (cumulative_qty > 0) [[likely]]
     {
       std::swap(order_ids[order_index], order_ids.back());
       std::swap(order_qtys[order_index], order_qtys.back());
@@ -180,7 +180,7 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id, const in
   auto &cumulative_qty = cumulative_qtys[price_index];
   cumulative_qty -= qty;
 
-  if (LIKELY(cumulative_qty > 0))
+  if (cumulative_qty > 0) [[likely]]
   {
     auto &order_ids = levels.order_ids[price_index];
     auto &order_qtys = levels.order_qtys[price_index];
@@ -229,7 +229,7 @@ HOT void OrderBook::executeOrder(PriceLevels &levels, const uint64_t id, const u
 
   cumulative_qty -= qty;
 
-  if (LIKELY(cumulative_qty > 0))
+  if (cumulative_qty > 0) [[likely]]
   {
     auto &order_ids = levels.order_ids.back();
     auto &order_qtys = levels.order_qtys.back();
