@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-05 14:48:44                                                
+last edited: 2025-04-05 15:16:39                                                
 
 ================================================================================*/
 
@@ -36,6 +36,7 @@ class Client
     int createUdpSocket(void) const noexcept;
 
     void fetchOrderbooks(void);
+    void syncSequences(void);
     void updateOrderbooks(void);
 
     void sendLogin(void) const;

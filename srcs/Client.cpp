@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-05 14:48:44                                                
+last edited: 2025-04-05 15:16:39                                                
 
 ================================================================================*/
 
@@ -119,10 +119,7 @@ Client::~Client(void) noexcept
 void Client::run(void)
 {
   fetchOrderbooks();
-
-  printf("exiting for now\n");
-  exit(EXIT_SUCCESS);
-
+  syncSequences();
   updateOrderbooks();
 }
 
@@ -133,6 +130,30 @@ COLD void Client::fetchOrderbooks(void)
   while (status == FETCHING)
     recvSnapshot();
   sendLogout();
+}
+
+COLD void Client::syncSequences(void)
+{
+  constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
+
+  msghdr msg{};
+  iovec iov[2]{};
+  struct Packet {
+    MoldUDP64Header header;
+    char payload[MAX_MSG_SIZE];
+  } packet{};
+
+  iov[0] = { &packet.header, sizeof(MoldUDP64Header) };
+  iov[1] = { packet.payload, MAX_MSG_SIZE };
+  msg.msg_iov = iov;
+  msg.msg_iovlen = 2;
+
+  uint64_t sequence_number = 0;
+  while (sequence_number < this->sequence_number - 1)
+  {
+    recvmsg(udp_sock_fd, &msg, MSG_WAITFORONE);
+    sequence_number = utils::to_host(packet.header.sequence_number);
+  }
 }
 
 HOT void Client::updateOrderbooks(void)
