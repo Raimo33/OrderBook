@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-05 11:22:59                                                
+last edited: 2025-04-05 11:28:51                                                
 
 ================================================================================*/
 
@@ -15,6 +15,7 @@ last edited: 2025-04-05 11:22:59
 #include <endian.h>
 #include <unistd.h>
 #include <cstring>
+#include <memory>
 
 #include "Client.hpp"
 #include "config.hpp"
@@ -162,7 +163,7 @@ HOT void Client::updateOrderbooks(void)
   {
     int8_t packets_count = recvmmsg(udp_sock_fd, mmsgs, MAX_BURST_PACKETS, MSG_WAITFORONE, nullptr);
     error |= packets_count == -1;
-    const Packet *packet = (Packet *)ASSUME_ALIGNED(packets, 64);
+    const Packet *packet = std::assume_aligned<64>(packets);
 
     while(packets_count--)
     {
