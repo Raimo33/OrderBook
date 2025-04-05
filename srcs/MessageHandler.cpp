@@ -5,11 +5,12 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-05 10:36:57                                                 
-last edited: 2025-04-05 10:36:57                                                
+last edited: 2025-04-05 11:07:01                                                
 
 ================================================================================*/
 
 #include <array>
+#include <span>
 #include <cstdint>
 
 #include "MessageHandler.hpp"
@@ -75,7 +76,7 @@ HOT void MessageHandler::handleDeletedOrder(const MessageData &data)
   const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side);
 
   static constexpr std::equal_to<uint32_t> comp{};
-  const size_t idx = utils::find(order_books.ids, book_id, comp);
+  const size_t idx = utils::find(std::span<const uint32_t>(order_books.ids), book_id, comp);
   order_books.books[idx].removeOrder(order_id, side);
 }
 
@@ -88,7 +89,7 @@ HOT void MessageHandler::handleExecutionNotice(const MessageData &data)
   const uint64_t qty = utils::to_host(execution_notice.executed_quantity);
 
   static constexpr std::equal_to<uint32_t> comp{};
-  const size_t idx = utils::find(order_books.ids, book_id, comp);
+  const size_t idx = utils::find(std::span<const uint32_t>(order_books.ids), book_id, comp);
   order_books.books[idx].executeOrder(order_id, resting_side, qty);
 }
 
@@ -102,7 +103,7 @@ HOT void MessageHandler::handleExecutionNoticeWithTradeInfo(const MessageData &d
   const int32_t price = utils::to_host(execution_notice.trade_price);
 
   static constexpr std::equal_to<uint32_t> comp{};
-  const size_t idx = utils::find(order_books.ids, book_id, comp);
+  const size_t idx = utils::find(std::span<const uint32_t>(order_books.ids), book_id, comp);
   order_books.books[idx].removeOrder(order_id, resting_side, price, qty);
 }
 
@@ -115,7 +116,7 @@ COLD void MessageHandler::handleEquilibriumPrice(const MessageData &data)
   const uint64_t ask_qty = utils::to_host(equilibrium_price.available_ask_quantity);
 
   static constexpr std::equal_to<uint32_t> comp{};
-  const size_t idx = utils::find(order_books.ids, book_id, comp);
+  const size_t idx = utils::find(std::span<const uint32_t>(order_books.ids), book_id, comp);
   order_books.books[idx].setEquilibrium(price, bid_qty, ask_qty);
 }
 
@@ -161,7 +162,7 @@ HOT void MessageHandler::handleNewLimitOrder(const MessageData &data)
   const uint64_t qty = utils::to_host(new_order.quantity);
 
   static constexpr std::equal_to<uint32_t> comp{};
-  const size_t idx = utils::find(order_books.ids, book_id, comp);
+  const size_t idx = utils::find(std::span<const uint32_t>(order_books.ids), book_id, comp);
   order_books.books[idx].addOrder(order_id, side, price, qty);
 }
 

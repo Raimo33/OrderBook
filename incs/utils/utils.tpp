@@ -5,14 +5,14 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-05 10:36:57                                                
+last edited: 2025-04-05 11:07:01                                                
 
 ================================================================================*/
 
 #pragma once
 
 #include <cstdint>
-#include <vector>
+#include <span>
 #include <immintrin.h>
 
 #include "utils.hpp"
@@ -22,15 +22,15 @@ namespace utils
 {
 
 template <typename T, typename Comparator>
-HOT ssize_t find(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
+HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
 
   constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
 
-  const T *begin = vec.data();
-  const size_t size = vec.size();
+  const T *begin = data.data();
+  const size_t size = data.size();
   size_t remaining = size;
   const T *it = begin;
 
@@ -95,15 +95,15 @@ HOT ssize_t find(const std::vector<T> &vec, const T &elem, const Comparator &com
 }
 
 template <typename T, typename Comparator>
-HOT ssize_t rfind(const std::vector<T> &vec, const T &elem, const Comparator &comp) noexcept
+HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
 
   constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
 
-  const T *begin = vec.data();
-  size_t remaining = vec.size();
+  const T *begin = data.data();
+  size_t remaining = data.size();
   const T *it = begin + remaining;
   bool keep_looking = true;
 
