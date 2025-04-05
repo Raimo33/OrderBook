@@ -52,15 +52,12 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
     keep_looking &= (misalignment > 0);
   }
 
-  if (misalignment)
-    return size - remaining;
-
 #if defined(__AVX512F__)
   const __m512i elem_vec = utils::simd::create_vector<__m512i, T>(elem);
   constexpr int opcode = utils::simd::get_opcode<T, Comparator>();
   __mmask64 mask = 0;
 
-  keep_looking = (remaining >= chunk_size);
+  keep_looking &= (remaining >= chunk_size);
   while (keep_looking)
   {
     const __m512i chunk = _mm512_loadu_si512(it);
@@ -81,7 +78,7 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
   }
 #endif
 
-  keep_looking = (remaining > 0);
+  keep_looking &= (remaining > 0);
   while (keep_looking)
   {
     ++it;
@@ -125,15 +122,12 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
     keep_looking &= (misalignment > 0);
   }
 
-  if (misalignment)
-    return remaining;
-
 #if defined(__AVX512F__)
   const __m512i elem_vec = utils::simd::create_vector<__m512i, T>(elem);
   constexpr int opcode = utils::simd::get_opcode<T, Comparator>();
   __mmask64 mask = 0;
 
-  keep_looking = (remaining >= chunk_size);
+  keep_looking &= (remaining >= chunk_size);
   while (keep_looking)
   {
     it -= chunk_size;
@@ -155,7 +149,7 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
   }
 #endif
 
-  keep_looking = (remaining > 0);
+  keep_looking &= (remaining > 0);
   while (keep_looking)
   {
     --it;
