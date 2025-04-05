@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-03-30 15:51:09                                                
+last edited: 2025-04-05 14:48:44                                                
 
 ================================================================================*/
 
@@ -29,7 +29,19 @@ int main(int argc, char **argv)
 
   init_signal_handler();
 
-  Client client(argv[1], argv[2]);
+  const Config config = {
+    .bind_ip = "", //TODO NIC ip
+    .multicast_ip = "239.194.169.6",
+    .multicast_port = "21006",
+    .rewind_ip = "10.18.146.7",
+    .rewind_port = "24110",
+    .glimpse_ip = "10.18.146.7",
+    .glimpse_port = "21827",
+    .username = argv[1],
+    .password = argv[2]
+  };
+
+  Client client(config);
   client.run();
 }
 

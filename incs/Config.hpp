@@ -5,21 +5,32 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-30 15:01:52                                                 
-last edited: 2025-04-03 20:16:29                                                
+last edited: 2025-04-05 14:48:44                                                
 
 ================================================================================*/
 
-#define BIND_IP "0.0.0.0"
-#define MULTICAST_IP "239.194.169.6"
-#define MULTICAST_PORT "21006"
+#pragma once
 
-#define REWIND_IP "10.18.146.7"
-#define REWIND_PORT "24110"
-
-#define GLIMPSE_IP "10.18.146.7"
-#define GLIMPSE_PORT "21827"
+#include <string>
 
 #define MTU 1500
 #define SOCK_BUFSIZE 8388608
 #define MAX_BURST_PACKETS 32
-#define IFNAME "enp43s0f0np0"
+
+//TODO are there some ports faster than others?
+
+struct Config
+{
+  std::string bind_ip;
+  std::string multicast_ip;
+  std::string multicast_port;
+
+  std::string rewind_ip;
+  std::string rewind_port;
+
+  std::string glimpse_ip;
+  std::string glimpse_port;
+
+  std::string username;
+  std::string password;
+};

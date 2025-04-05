@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-05 11:28:51                                                
+last edited: 2025-04-05 14:48:44                                                
 
 ================================================================================*/
 
@@ -18,19 +18,19 @@ last edited: 2025-04-05 11:28:51
 #include <memory>
 
 #include "Client.hpp"
-#include "config.hpp"
+#include "Config.hpp"
 #include "utils/utils.hpp"
 #include "macros.hpp"
 #include "error.hpp"
 
-COLD Client::Client(const std::string_view username, const std::string_view password) noexcept :
-  username(username),
-  password(password),
-  glimpse_address(createAddress(GLIMPSE_IP, GLIMPSE_PORT)),
-  multicast_address(createAddress(MULTICAST_IP, MULTICAST_PORT)),
-  rewind_address(createAddress(REWIND_IP, REWIND_PORT)),
-  bind_address_tcp(createAddress(BIND_IP, "0")),
-  bind_address_udp(createAddress(BIND_IP, MULTICAST_PORT)),
+COLD Client::Client(const Config &config) noexcept :
+  username(config.username),
+  password(config.password),
+  glimpse_address(createAddress(config.glimpse_ip, config.glimpse_port)),
+  multicast_address(createAddress(config.multicast_ip, config.multicast_port)),
+  rewind_address(createAddress(config.rewind_ip, config.rewind_port)),
+  bind_address_tcp(createAddress(config.bind_ip, "0")),
+  bind_address_udp(createAddress(config.bind_ip, config.multicast_port)),
   tcp_sock_fd(createTcpSocket()),
   udp_sock_fd(createUdpSocket()),
   sequence_number(0),
@@ -92,8 +92,6 @@ COLD int Client::createUdpSocket(void) const noexcept
   constexpr int disable = 0;
   constexpr int priority = 255;
   constexpr int recv_bufsize = SOCK_BUFSIZE;
-  constexpr char ifname[] = IFNAME;
-  constexpr int ifname_len = strlen(ifname);
 
   //TODO add
   // error |= setsockopt(sock_fd, SOL_SOCKET, SO_ZEROCOPY, &enable, sizeof(enable)) == -1;
@@ -101,7 +99,6 @@ COLD int Client::createUdpSocket(void) const noexcept
   error |= setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &disable, sizeof(disable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_BUSY_POLL, &enable, sizeof(enable)) == -1;
   error |= setsockopt(sock_fd, SOL_SOCKET, SO_RCVBUF, &recv_bufsize, sizeof(recv_bufsize)) == -1;
-  error |= setsockopt(sock_fd, SOL_SOCKET, SO_BINDTODEVICE, ifname, ifname_len) == -1;
   error |= setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_ALL, &disable, sizeof(disable)) == -1;
 
   //TODO remove
