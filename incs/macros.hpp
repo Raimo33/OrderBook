@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-04-06 17:53:26                                                
+last edited: 2025-04-06 22:29:03                                                
 
 ================================================================================*/
 
@@ -15,6 +15,7 @@ last edited: 2025-04-06 17:53:26
 #define COLD                      __attribute__((cold))
 #define ALWAYS_INLINE             __attribute__((always_inline))
 #define NEVER_INLINE              __attribute__((noinline))
+#define PURE                      __attribute__((pure))
 #define UNUSED                    __attribute__((unused))
 #define PREFETCH_R(x, priority)   __builtin_prefetch(x, 0, priority)
 #define PREFETCH_W(x, priority)   __builtin_prefetch(x, 1, priority)

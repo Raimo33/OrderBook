@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-05 10:36:57                                                 
-last edited: 2025-04-06 18:55:50                                                
+last edited: 2025-04-06 22:29:03                                                
 
 ================================================================================*/
 
@@ -94,7 +94,7 @@ HOT void MessageHandler::handleExecutionNoticeWithTradeInfo(const MessageData &d
   order_book.removeOrder(execution.order_id, resting_side, execution.trade_price, execution.executed_quantity);
 }
 
-COLD void MessageHandler::handleEquilibriumPrice(const MessageData &data)
+void MessageHandler::handleEquilibriumPrice(const MessageData &data)
 {
   const auto &ep = data.ep;
 

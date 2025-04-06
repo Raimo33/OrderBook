@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 11:22:28                                                 
-last edited: 2025-03-23 17:58:46                                                
+last edited: 2025-04-06 22:29:03                                                
 
 ================================================================================*/
 
@@ -14,4 +14,4 @@ last edited: 2025-03-23 17:58:46
 #include "error.hpp"
 #include "macros.hpp"
 
-HOT ALWAYS_INLINE inline void ignore(void) {}
+HOT PURE ALWAYS_INLINE inline void ignore(void) {}

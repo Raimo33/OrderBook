@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-06 18:55:50                                                
+last edited: 2025-04-06 22:29:03                                                
 
 ================================================================================*/
 
@@ -222,7 +222,7 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
 constexpr bool needs_byte_swap = (std::endian::native == std::endian::little);
 
 template <typename T>
-HOT ALWAYS_INLINE inline T to_host(const T &value) noexcept
+HOT PURE ALWAYS_INLINE inline T to_host(const T &value) noexcept
 {
   if constexpr (needs_byte_swap)
     return std::byteswap(value);
@@ -231,7 +231,7 @@ HOT ALWAYS_INLINE inline T to_host(const T &value) noexcept
 }
 
 template <typename T>
-HOT ALWAYS_INLINE inline T to_network(const T &value) noexcept
+HOT PURE ALWAYS_INLINE inline T to_network(const T &value) noexcept
 {
   if constexpr (needs_byte_swap)
     return std::byteswap(value);

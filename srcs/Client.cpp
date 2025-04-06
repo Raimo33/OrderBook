@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-06 19:18:32                                                
+last edited: 2025-04-06 22:29:03                                                
 
 ================================================================================*/
 
@@ -111,13 +111,13 @@ COLD int Client::createUdpSocket(void) const noexcept
   return sock_fd;
 }
 
-Client::~Client(void) noexcept
+COLD Client::~Client(void) noexcept
 {
   close(tcp_sock_fd);
   close(udp_sock_fd);
 }
 
-void Client::run(void)
+COLD void Client::run(void)
 {
   fetchOrderbooks();
   syncSequences();

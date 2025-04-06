@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-04-06 19:18:32                                                
+last edited: 2025-04-06 22:29:03                                                
 
 ================================================================================*/
 
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
   client.run();
 }
 
-void init_signal_handler(void)
+COLD void init_signal_handler(void)
 {
   struct sigaction sa{};
 

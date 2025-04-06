@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-04 21:21:27                                                 
-last edited: 2025-04-06 17:53:26                                                
+last edited: 2025-04-06 22:29:03                                                
 
 ================================================================================*/
 
@@ -21,7 +21,7 @@ last edited: 2025-04-06 17:53:26
 #include "macros.hpp"
 
 template <typename VectorType, typename ScalarType>
-ALWAYS_INLINE inline VectorType utils::simd::create_vector(const ScalarType &elem)
+HOT PURE ALWAYS_INLINE inline VectorType utils::simd::create_vector(const ScalarType &elem)
 {
 #ifdef __AVX512F__
   if constexpr (std::is_same_v<VectorType, __m512i>)
@@ -97,7 +97,7 @@ ALWAYS_INLINE inline VectorType utils::simd::create_vector(const ScalarType &ele
 }
 
 template <typename ScalarType, typename Comparator>
-ALWAYS_INLINE inline constexpr int utils::simd::get_opcode(void)
+HOT PURE ALWAYS_INLINE inline constexpr int utils::simd::get_opcode(void)
 {
   if constexpr (std::is_integral_v<ScalarType>)
   {
@@ -132,7 +132,7 @@ ALWAYS_INLINE inline constexpr int utils::simd::get_opcode(void)
 }
 
 template <typename VectorType, typename ScalarType>
-ALWAYS_INLINE inline __mmask64 utils::simd::compare(const VectorType &chunk, const VectorType &elem_vec, const int opcode)
+HOT PURE ALWAYS_INLINE inline __mmask64 utils::simd::compare(const VectorType &chunk, const VectorType &elem_vec, const int opcode)
 {
 #ifdef __AVX512F__
   if constexpr (std::is_same<VectorType, __m512i>::value)

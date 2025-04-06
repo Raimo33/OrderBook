@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-03-30 18:18:04                                                
+last edited: 2025-04-06 22:29:03                                                
 
 ================================================================================*/
 
@@ -15,7 +15,7 @@ last edited: 2025-03-30 18:18:04
 
 [[noreturn]] COLD NEVER_INLINE void panic(void)
 {
-  #if defined(__EXCEPTIONS)
+  #ifdef __EXCEPTIONS
     throw std::runtime_error("Error occured, shit your pants");
   #else
     std::terminate();
