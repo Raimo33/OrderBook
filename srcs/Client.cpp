@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-06 18:55:50                                                
+last edited: 2025-04-06 19:18:32                                                
 
 ================================================================================*/
 
@@ -137,12 +137,12 @@ COLD void Client::syncSequences(void)
 {
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
-  msghdr msg{};
-  iovec iov[2]{};
+  msghdr msg;
+  iovec iov[2];
   struct Packet {
     MoldUDP64Header header;
     char payload[MAX_MSG_SIZE];
-  } packet{};
+  } packet;
 
   iov[0] = { &packet.header, sizeof(MoldUDP64Header) };
   iov[1] = { packet.payload, MAX_MSG_SIZE };
@@ -162,12 +162,12 @@ HOT void Client::updateOrderbooks(void)
   constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
   //+1 added for safe prefetching past the last packet 
-  alignas(64) mmsghdr mmsgs[MAX_BURST_PACKETS+1]{};
-  alignas(64) iovec iov[2][MAX_BURST_PACKETS+1]{};
+  alignas(64) mmsghdr mmsgs[MAX_BURST_PACKETS+1];
+  alignas(64) iovec iov[2][MAX_BURST_PACKETS+1];
   alignas(64) struct Packet {
     MoldUDP64Header header;
     char payload[MAX_MSG_SIZE];
-  } packets[MAX_BURST_PACKETS+1]{};
+  } packets[MAX_BURST_PACKETS+1];
 
   for (int i = 0; i < MAX_BURST_PACKETS; ++i)
   {
@@ -205,7 +205,7 @@ HOT void Client::updateOrderbooks(void)
 
 COLD void Client::sendLogin(void) const
 {
-  SoupBinTCPPacket packet{};
+  SoupBinTCPPacket packet;
   auto &body = packet.body;
   constexpr uint16_t body_length = sizeof(body.type) + sizeof(body.login_request);
   constexpr uint16_t packet_size = sizeof(packet.body_length) + body_length;
@@ -224,7 +224,7 @@ COLD void Client::sendLogin(void) const
 
 COLD void Client::recvLogin(void)
 {
-  SoupBinTCPPacket packet{};
+  SoupBinTCPPacket packet;
 
   error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), MSG_WAITALL) == -1;
   error |= recv(tcp_sock_fd, &packet.body, packet.body_length, MSG_WAITALL) == -1;
@@ -273,7 +273,7 @@ COLD void Client::recvSnapshot(void)
 
 COLD void Client::sendLogout(void) const
 {
-  SoupBinTCPPacket packet{};
+  SoupBinTCPPacket packet;
   packet.body_length = 1;
   packet.body.type = 'Z';
 

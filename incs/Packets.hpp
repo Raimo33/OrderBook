@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 22:29:52                                                 
-last edited: 2025-04-06 18:55:50                                                
+last edited: 2025-04-06 19:18:32                                                
 
 ================================================================================*/
 
@@ -20,7 +20,7 @@ struct NetworkValue
 {
   T value;
 
-  explicit NetworkValue(const T network_value = {}) noexcept;
+  constexpr explicit NetworkValue(const T network_value = {}) noexcept;
 
   constexpr inline operator T() const noexcept;
   constexpr inline NetworkValue<T> &operator=(const T &host_value) noexcept;

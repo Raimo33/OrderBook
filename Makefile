@@ -9,7 +9,7 @@ DEPS := $(OBJS:.o=.d)
 
 CCXX := g++
 
-CXXFLAGS += -std=c++23 -mavx512f
+CXXFLAGS += -std=c++23
 #warnings
 CXXFLAGS += -Wall -Wextra -pedantic
 #architecture

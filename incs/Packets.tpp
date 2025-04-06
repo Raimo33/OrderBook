@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-06 18:55:50                                                 
-last edited: 2025-04-06 18:55:50                                                
+last edited: 2025-04-06 19:18:32                                                
 
 ================================================================================*/
 
@@ -15,7 +15,7 @@ last edited: 2025-04-06 18:55:50
 #include "utils/utils.hpp"
 
 template <typename T>
-NetworkValue<T>::NetworkValue(const T network_value) noexcept
+constexpr NetworkValue<T>::NetworkValue(const T network_value) noexcept
   : value(network_value)
 {
 }

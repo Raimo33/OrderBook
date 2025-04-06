@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-04-06 11:56:06                                                
+last edited: 2025-04-06 19:18:32                                                
 
 ================================================================================*/
 
@@ -31,7 +31,7 @@ int main(int argc, char **argv)
   init_signal_handler();
 
   const Config config = {
-    .bind_ip = "", //TODO NIC ip
+    .bind_ip = "10.248.193.12",
     .multicast_ip = "239.194.169.6",
     .multicast_port = "21006",
     .rewind_ip = "10.18.146.7",
