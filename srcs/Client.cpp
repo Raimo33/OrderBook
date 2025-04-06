@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-05 15:16:39                                                
+last edited: 2025-04-06 11:56:06                                                
 
 ================================================================================*/
 
@@ -90,7 +90,7 @@ COLD int Client::createUdpSocket(void) const noexcept
 
   constexpr int enable = 1;
   constexpr int disable = 0;
-  constexpr int priority = 255;
+  constexpr int priority = 6;
   constexpr int recv_bufsize = SOCK_BUFSIZE;
 
   //TODO add

@@ -9,9 +9,9 @@ DEPS := $(OBJS:.o=.d)
 
 CCXX := g++
 
-CXXFLAGS += -std=c++23
+CXXFLAGS += -std=c++23 -mavx512f
 #warnings
-CXXFLAGS += -Wall -Wextra -Werror -pedantic
+CXXFLAGS += -Wall -Wextra -pedantic
 #architecture
 CXXFLAGS += -march=znver2 -mtune=znver2
 #TODO benchmark all selectively

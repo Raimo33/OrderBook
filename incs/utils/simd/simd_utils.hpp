@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-04 21:21:27                                                 
-last edited: 2025-04-05 01:04:21                                                
+last edited: 2025-04-06 11:56:06                                                
 
 ================================================================================*/
 
@@ -18,10 +18,10 @@ last edited: 2025-04-05 01:04:21
 namespace utils::simd
 {
   template <typename VectorType, typename ScalarType>
-  inline consteval VectorType create_vector(const ScalarType &elem);
+  inline VectorType create_vector(const ScalarType &elem);
 
   template <typename ScalarType, typename Comparator>
-  inline consteval int get_opcode(void);
+  inline constexpr int get_opcode(void);
 
   template <typename VectorType, typename ScalarType>
   inline __mmask64 compare(const VectorType &chunk, const VectorType &elem_vec, const int opcode);

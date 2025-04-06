@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-04 21:21:27                                                 
-last edited: 2025-04-04 21:21:27                                                
+last edited: 2025-04-06 11:56:06                                                
 
 ================================================================================*/
 
@@ -19,10 +19,10 @@ last edited: 2025-04-04 21:21:27
 #include "macros.hpp"
 
 template <typename VectorType, typename ScalarType>
-ALWAYS_INLINE inline consteval VectorType utils::simd::create_vector(const ScalarType &elem)
+ALWAYS_INLINE inline VectorType utils::simd::create_vector(const ScalarType &elem)
 {
 #if defined(__AVX512F__)
-  if constexpr (std::is_same_v<T, __m512i>)
+  if constexpr (std::is_same_v<VectorType, __m512i>)
   {
     if constexpr (sizeof(ScalarType) == sizeof(int8_t))
       return _mm512_set1_epi8(elem);
@@ -95,7 +95,7 @@ ALWAYS_INLINE inline consteval VectorType utils::simd::create_vector(const Scala
 }
 
 template <typename ScalarType, typename Comparator>
-ALWAYS_INLINE inline consteval int utils::simd::get_opcode(void)
+ALWAYS_INLINE inline constexpr int utils::simd::get_opcode(void)
 {
   if constexpr (std::is_integral_v<ScalarType>)
   {
@@ -171,10 +171,7 @@ ALWAYS_INLINE inline __mmask64 utils::simd::compare(const VectorType &chunk, con
 #endif
 
 #if defined (__AVX__)
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wignored-attributes"
   if constexpr (std::is_same<VectorType, __m256i>::value)
-  #pragma GCC diagnostic pop
   {
     if constexpr (std::is_integral_v<ScalarType>)
     {
@@ -212,10 +209,7 @@ ALWAYS_INLINE inline __mmask64 utils::simd::compare(const VectorType &chunk, con
 #endif
 
 #if defined (__SSE2__)
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wignored-attributes"
   if constexpr (std::is_same<VectorType, __m128i>::value)
-  #pragma GCC diagnostic pop
   {
     if constexpr (std::is_integral_v<ScalarType>)
     {
