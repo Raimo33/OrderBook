@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-06 17:53:26                                                
+last edited: 2025-04-06 18:55:50                                                
 
 ================================================================================*/
 
@@ -17,6 +17,7 @@ last edited: 2025-04-06 17:53:26
 #include <memory>
 #include <array>
 #include <immintrin.h>
+#include <bit>
 
 #include "utils.hpp"
 #include "macros.hpp"
@@ -218,32 +219,24 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
   return remaining ? remaining : -1;
 }
 
+constexpr bool needs_byte_swap = (std::endian::native == std::endian::little);
+
 template <typename T>
 HOT ALWAYS_INLINE inline T to_host(const T &value) noexcept
 {
-  static_assert(std::is_arithmetic<T>::value, "T must be a numeric type");
-  static_assert(sizeof(T) >= 2, "T must be at least 2 bytes");
-
-  if constexpr (sizeof(T) == 2)
-    return be16toh(value);
-  if constexpr (sizeof(T) == 4)
-    return be32toh(value);
-  if constexpr (sizeof(T) == 8)
-    return be64toh(value);
+  if constexpr (needs_byte_swap)
+    return std::byteswap(value);
+  else
+    return value;
 }
 
 template <typename T>
 HOT ALWAYS_INLINE inline T to_network(const T &value) noexcept
 {
-  static_assert(std::is_arithmetic<T>::value, "T must be a numeric type");
-  static_assert(sizeof(T) >= 2, "T must be at least 2 bytes");
-
-  if constexpr (sizeof(T) == 2)
-    return htobe16(value);
-  if constexpr (sizeof(T) == 4)
-    return htobe32(value);
-  if constexpr (sizeof(T) == 8)
-    return htobe64(value);
+  if constexpr (needs_byte_swap)
+    return std::byteswap(value);
+  else
+    return value;
 }
 
 }

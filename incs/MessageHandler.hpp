@@ -1,10 +1,21 @@
+/*================================================================================
+
+File: MessageHandler.hpp                                                        
+Creator: Claudio Raimondi                                                       
+Email: claudio.raimondi@pm.me                                                   
+
+created at: 2025-04-06 18:55:50                                                 
+last edited: 2025-04-06 18:55:50                                                
+
+================================================================================*/
+
 #pragma once
 
 #include <cstdint>
 #include <vector>
 
 #include "OrderBook.hpp"
-#include "packets.hpp"
+#include "Packets.hpp"
 
 class MessageHandler
 {
@@ -31,6 +42,8 @@ class MessageHandler
     
     void handleNewLimitOrder(const MessageData &data);
     void handleNewMarketOrder(const MessageData &data);
+
+    OrderBook &getOrderBook(const uint32_t orderbook_id) noexcept;
 
     struct OrderBooks
     {

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-05 15:16:39                                                
+last edited: 2025-04-06 18:55:50                                                
 
 ================================================================================*/
 
@@ -17,7 +17,7 @@ last edited: 2025-04-05 15:16:39
 #include <netinet/in.h>
 
 #include "MessageHandler.hpp"
-#include "packets.hpp"
+#include "Packets.hpp"
 #include "Config.hpp"
 
 class Client
