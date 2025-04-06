@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-06 11:56:06                                                
+last edited: 2025-04-06 17:53:26                                                
 
 ================================================================================*/
 
@@ -16,6 +16,7 @@ last edited: 2025-04-06 11:56:06
 #include <unistd.h>
 #include <cstring>
 #include <memory>
+#include <utility>
 
 #include "Client.hpp"
 #include "Config.hpp"
@@ -198,7 +199,8 @@ HOT void Client::updateOrderbooks(void)
       packet++;
     }
   }
-  UNREACHABLE;
+
+  std::unreachable();
 }
 
 COLD void Client::sendLogin(void) const

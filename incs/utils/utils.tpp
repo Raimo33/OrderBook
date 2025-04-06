@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-06 11:56:06                                                
+last edited: 2025-04-06 17:53:26                                                
 
 ================================================================================*/
 
@@ -14,6 +14,7 @@ last edited: 2025-04-06 11:56:06
 #include <cstdint>
 #include <span>
 #include <ranges>
+#include <memory>
 #include <array>
 #include <immintrin.h>
 
@@ -69,7 +70,7 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
   {
     it = std::assume_aligned<64>(it);
 
-    #pragma unroll(UNROLL_FACTOR)
+    #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
       chunks[i] = _mm512_load_si512(it + i * chunk_size);
 
@@ -77,15 +78,15 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
     remaining -= combined_chunks_size;
     keep_looking = (remaining >= combined_chunks_size);
 
-    #pragma unroll(UNROLL_FACTOR)
+    #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
       PREFETCH_R(it + i * chunk_size * keep_looking, 0);
 
-    #pragma unroll(UNROLL_FACTOR)
+    #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
       masks[i] = utils::simd::compare<__m512i, T>(chunks[i], elem_vec, opcode);
 
-    #pragma unroll(UNROLL_FACTOR)
+    #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
       found |= masks[i];
 
@@ -165,7 +166,7 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
   keep_looking &= (remaining >= combined_chunks_size);
   while (keep_looking)
   {
-    #pragma unroll(UNROLL_FACTOR)
+    #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
       chunks[i] = _mm512_load_si512(it - i * chunk_size);
 
@@ -173,15 +174,15 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
     remaining -= combined_chunks_size;
     keep_looking = (remaining >= combined_chunks_size);
 
-    #pragma unroll(UNROLL_FACTOR)
+    #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
       PREFETCH_R(it - i * chunk_size * keep_looking, 0);
 
-    #pragma unroll(UNROLL_FACTOR)
+    #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
       masks[i] = utils::simd::compare<__m512i, T>(chunks[i], elem_vec, opcode);
 
-    #pragma unroll(UNROLL_FACTOR)
+    #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
       found |= masks[i];
 
@@ -229,8 +230,6 @@ HOT ALWAYS_INLINE inline T to_host(const T &value) noexcept
     return be32toh(value);
   if constexpr (sizeof(T) == 8)
     return be64toh(value);
-
-  UNREACHABLE;
 }
 
 template <typename T>
@@ -245,8 +244,6 @@ HOT ALWAYS_INLINE inline T to_network(const T &value) noexcept
     return htobe32(value);
   if constexpr (sizeof(T) == 8)
     return htobe64(value);
-
-  UNREACHABLE;
 }
 
 }

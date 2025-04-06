@@ -5,9 +5,11 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-04 21:21:27                                                 
-last edited: 2025-04-06 11:56:06                                                
+last edited: 2025-04-06 17:53:26                                                
 
 ================================================================================*/
+
+//TODO add compile time errors
 
 #pragma once
 
@@ -21,7 +23,7 @@ last edited: 2025-04-06 11:56:06
 template <typename VectorType, typename ScalarType>
 ALWAYS_INLINE inline VectorType utils::simd::create_vector(const ScalarType &elem)
 {
-#if defined(__AVX512F__)
+#ifdef __AVX512F__
   if constexpr (std::is_same_v<VectorType, __m512i>)
   {
     if constexpr (sizeof(ScalarType) == sizeof(int8_t))
@@ -45,7 +47,7 @@ ALWAYS_INLINE inline VectorType utils::simd::create_vector(const ScalarType &ele
   }
 #endif
 
-#if defined(__AVX__)
+#ifdef __AVX__
   if constexpr (std::is_same_v<VectorType, __m256i>)
   {
     if constexpr (sizeof(ScalarType) == sizeof(int8_t))
@@ -69,7 +71,7 @@ ALWAYS_INLINE inline VectorType utils::simd::create_vector(const ScalarType &ele
   }
 #endif
 
-#if defined (__SSE2__)
+#ifdef __SSE2__
   if constexpr (std::is_same_v<VectorType, __m128i>)
   {
     if constexpr (sizeof(ScalarType) == sizeof(int8_t))
@@ -99,32 +101,32 @@ ALWAYS_INLINE inline constexpr int utils::simd::get_opcode(void)
 {
   if constexpr (std::is_integral_v<ScalarType>)
   {
-    if constexpr (std::is_same_v<Comparator, std::equal_to>)
+    if constexpr (std::is_same_v<Comparator, std::equal_to<ScalarType>>)
       return _MM_CMPINT_EQ;
-    if constexpr (std::is_same_v<Comparator, std::not_equal_to>)
+    if constexpr (std::is_same_v<Comparator, std::not_equal_to<ScalarType>>)
       return _MM_CMPINT_NE;
-    if constexpr (std::is_same_v<Comparator, std::less_equal>)
+    if constexpr (std::is_same_v<Comparator, std::less_equal<ScalarType>>)
       return _MM_CMPINT_LE;
-    if constexpr (std::is_same_v<Comparator, std::greater_equal>)
+    if constexpr (std::is_same_v<Comparator, std::greater_equal<ScalarType>>)
       return _MM_CMPINT_GE;
-    if constexpr (std::is_same_v<Comparator, std::less>)
+    if constexpr (std::is_same_v<Comparator, std::less<ScalarType>>)
       return _MM_CMPINT_LT;
-    if constexpr (std::is_same_v<Comparator, std::greater>)
+    if constexpr (std::is_same_v<Comparator, std::greater<ScalarType>>)
       return _MM_CMPINT_GT;
   }
   if constexpr (std::is_floating_point_v<ScalarType>)
   {
-    if constexpr (std::is_same_v<Comparator, std::equal_to>)
+    if constexpr (std::is_same_v<Comparator, std::equal_to<ScalarType>>)
       return _CMP_EQ_OQ;
-    if constexpr (std::is_same_v<Comparator, std::not_equal_to>)
+    if constexpr (std::is_same_v<Comparator, std::not_equal_to<ScalarType>>)
       return _CMP_NEQ_OQ;
-    if constexpr (std::is_same_v<Comparator, std::less_equal>)
+    if constexpr (std::is_same_v<Comparator, std::less_equal<ScalarType>>)
       return _CMP_LE_OQ;
-    if constexpr (std::is_same_v<Comparator, std::greater_equal>)
+    if constexpr (std::is_same_v<Comparator, std::greater_equal<ScalarType>>)
       return _CMP_GE_OQ;
-    if constexpr (std::is_same_v<Comparator, std::less>)
+    if constexpr (std::is_same_v<Comparator, std::less<ScalarType>>)
       return _CMP_LT_OQ;
-    if constexpr (std::is_same_v<Comparator, std::greater>)
+    if constexpr (std::is_same_v<Comparator, std::greater<ScalarType>>)
       return _CMP_GT_OQ;
   }
 }
@@ -132,7 +134,7 @@ ALWAYS_INLINE inline constexpr int utils::simd::get_opcode(void)
 template <typename VectorType, typename ScalarType>
 ALWAYS_INLINE inline __mmask64 utils::simd::compare(const VectorType &chunk, const VectorType &elem_vec, const int opcode)
 {
-#if defined(__AVX512F__)
+#ifdef __AVX512F__
   if constexpr (std::is_same<VectorType, __m512i>::value)
   {
     if constexpr (std::is_integral_v<ScalarType>)
@@ -170,7 +172,7 @@ ALWAYS_INLINE inline __mmask64 utils::simd::compare(const VectorType &chunk, con
   }
 #endif
 
-#if defined (__AVX__)
+#ifdef __AVX__
   if constexpr (std::is_same<VectorType, __m256i>::value)
   {
     if constexpr (std::is_integral_v<ScalarType>)
@@ -208,7 +210,7 @@ ALWAYS_INLINE inline __mmask64 utils::simd::compare(const VectorType &chunk, con
   }
 #endif
 
-#if defined (__SSE2__)
+#ifdef __SSE2__
   if constexpr (std::is_same<VectorType, __m128i>::value)
   {
     if constexpr (std::is_integral_v<ScalarType>)
