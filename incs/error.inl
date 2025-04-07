@@ -14,4 +14,4 @@ last edited: 2025-04-06 22:29:03
 #include "error.hpp"
 #include "macros.hpp"
 
-HOT PURE ALWAYS_INLINE inline void ignore(void) {}
+HOT ALWAYS_INLINE inline void ignore(void) {}

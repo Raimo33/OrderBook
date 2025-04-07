@@ -37,7 +37,7 @@ PURE inline OrderBook::BookEntry OrderBook::getEquilibriumPriceAsk(void) const n
   return {equilibrium_price, equilibrium_ask_qty};
 }
 
-PURE inline void OrderBook::setEquilibrium(const int32_t price, const uint64_t bid_qty, const uint64_t ask_qty) noexcept
+inline void OrderBook::setEquilibrium(const int32_t price, const uint64_t bid_qty, const uint64_t ask_qty) noexcept
 {
   equilibrium_price = price;
   equilibrium_bid_qty = bid_qty;

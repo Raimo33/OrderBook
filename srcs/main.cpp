@@ -32,12 +32,12 @@ int main(int argc, char **argv)
 
   const Config config = {
     .bind_ip = "10.248.193.12",
-    .multicast_ip = "239.194.169.6",
-    .multicast_port = "21006",
-    .rewind_ip = "10.18.146.7",
-    .rewind_port = "24110",
-    .glimpse_ip = "10.18.146.7",
-    .glimpse_port = "21827",
+    .multicast_ip = "239.194.169.2",
+    .multicast_port = "21002",
+    .rewind_ip = "10.18.146.3",
+    .rewind_port = "24003",
+    .glimpse_ip = "10.18.146.3",
+    .glimpse_port = "21815",
     .username = argv[1],
     .password = argv[2]
   };

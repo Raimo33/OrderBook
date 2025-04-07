@@ -47,6 +47,8 @@ COLD Client::Client(const Config &config) noexcept :
   error |= setsockopt(udp_sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1;
   error |= connect(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address)) == -1;
 
+  printf("strerror: %s\n", strerror(errno));
+
   CHECK_ERROR;
 }
 
@@ -120,6 +122,7 @@ COLD Client::~Client(void) noexcept
 COLD void Client::run(void)
 {
   fetchOrderbooks();
+  printf("fetched orderbooks\n");
   syncSequences();
   updateOrderbooks();
 }
