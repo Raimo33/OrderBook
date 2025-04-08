@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-06 18:55:50                                                
+last edited: 2025-04-08 19:45:06                                                
 
 ================================================================================*/
 
@@ -25,7 +25,7 @@ class Client
   public:
 
     Client(const Config &config) noexcept;
-    ~Client(void) noexcept;
+    ~Client() noexcept;
 
     void run(void);
 

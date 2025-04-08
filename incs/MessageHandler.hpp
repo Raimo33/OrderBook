@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-06 18:55:50                                                 
-last edited: 2025-04-06 18:55:50                                                
+last edited: 2025-04-08 19:45:06                                                
 
 ================================================================================*/
 
@@ -21,7 +21,7 @@ class MessageHandler
 {
   public:
     MessageHandler(void) noexcept;
-    ~MessageHandler(void) noexcept;
+    ~MessageHandler() noexcept;
 
     void handleMessage(const MessageData &data);
 

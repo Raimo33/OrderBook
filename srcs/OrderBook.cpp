@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-08 18:40:40                                                
+last edited: 2025-04-08 19:45:06                                                
 
 ================================================================================*/
 
@@ -33,16 +33,17 @@ COLD OrderBook::OrderBook(void) noexcept :
   asks.order_qtys.emplace_back();
 }
 
-COLD OrderBook::OrderBook(OrderBook &&other) noexcept :
-  bids(std::move(other.bids)),
-  asks(std::move(other.asks)),
-  equilibrium_price(other.equilibrium_price),
-  equilibrium_bid_qty(other.equilibrium_bid_qty),
-  equilibrium_ask_qty(other.equilibrium_ask_qty)
-{
-}
+//TODO implement correctly
+// COLD OrderBook::OrderBook(OrderBook &&other) noexcept :
+//   bids(std::move(other.bids)),
+//   asks(std::move(other.asks)),
+//   equilibrium_price(other.equilibrium_price),
+//   equilibrium_bid_qty(other.equilibrium_bid_qty),
+//   equilibrium_ask_qty(other.equilibrium_ask_qty)
+// {
+// }
 
-COLD OrderBook::~OrderBook(void)
+COLD OrderBook::~OrderBook()
 {
 }
 
@@ -59,13 +60,11 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t p
 
 HOT ALWAYS_INLINE inline void OrderBook::addOrderBid(const uint64_t id, const int32_t price, const uint64_t qty)
 {
-  printf("adding bid order\n");
   addOrder<std::less_equal<int32_t>>(bids, id, price, qty);
 }
 
 HOT ALWAYS_INLINE inline void OrderBook::addOrderAsk(const uint64_t id, const int32_t price, const uint64_t qty)
 {
-  printf("adding ask order\n");
   addOrder<std::greater_equal<int32_t>>(asks, id, price, qty);
 }
 
@@ -104,8 +103,6 @@ HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
     &OrderBook::removeOrderAsk
   };
 
-  printf("removing order\n");
-
   (this->*handlers[side])(id);
 }
 
@@ -122,8 +119,6 @@ HOT ALWAYS_INLINE inline void OrderBook::removeOrderAsk(const uint64_t id)
 //TODO refactor
 HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
 {
-  printf("removing order\n");
-
   for (auto order_ids_it = levels.order_ids.rbegin(); order_ids_it != levels.order_ids.rend(); ++order_ids_it)
   {
     auto &order_ids = *order_ids_it;

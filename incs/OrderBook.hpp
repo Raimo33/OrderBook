@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-05 00:18:43                                                
+last edited: 2025-04-08 19:45:06                                                
 
 ================================================================================*/
 
@@ -21,8 +21,8 @@ class OrderBook
 {
   public:
     OrderBook(void) noexcept;
-    OrderBook(OrderBook &&) noexcept;
-    ~OrderBook(void);
+    // OrderBook(OrderBook &&) noexcept;
+    ~OrderBook();
 
     enum Side : uint8_t { BID = 0, ASK = 1 };
 
