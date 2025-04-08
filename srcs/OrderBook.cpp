@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-08 16:11:46                                                
+last edited: 2025-04-08 18:40:40                                                
 
 ================================================================================*/
 
@@ -19,8 +19,6 @@ last edited: 2025-04-08 16:11:46
 extern volatile bool error;
 
 COLD OrderBook::OrderBook(void) noexcept :
-  bids(),
-  asks(),
   equilibrium_price(INT32_MIN),
   equilibrium_bid_qty(0),
   equilibrium_ask_qty(0)
@@ -79,12 +77,8 @@ HOT void OrderBook::addOrder(PriceLevels &levels, const uint64_t id, const int32
   auto &order_ids = levels.order_ids;
   auto &order_qtys = levels.order_qtys;
 
-  printf("before find prices.size() = %lu\n", prices.size());
-
   static constexpr Comparator cmp;
-  ssize_t index = utils::rfind(std::span<const int32_t>(prices), price, cmp);
-
-  printf("after find prices.size() = %lu\n", prices.size());
+  ssize_t index = utils::rfind(std::span{prices}, price, cmp);
 
   if (prices[index] == price) [[likely]]
   {
@@ -97,8 +91,8 @@ HOT void OrderBook::addOrder(PriceLevels &levels, const uint64_t id, const int32
     index++;
     prices.insert(prices.cbegin() + index, price);
     cumulative_qtys.insert(cumulative_qtys.cbegin() + index, qty);
-    order_ids.insert(order_ids.cbegin() + index, std::vector<uint64_t>{id});
-    order_qtys.insert(order_qtys.cbegin() + index, std::vector<uint64_t>{qty});
+    order_ids.emplace(order_ids.cbegin() + index, std::vector<uint64_t>{id});
+    order_qtys.emplace(order_qtys.cbegin() + index, std::vector<uint64_t>{qty});
   }
 }
 
@@ -135,7 +129,7 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
     auto &order_ids = *order_ids_it;
 
     static constexpr std::equal_to<uint64_t> order_ids_cmp;
-    const ssize_t order_index = utils::rfind(std::span<const uint64_t>(order_ids), id, order_ids_cmp);
+    const ssize_t order_index = utils::rfind(std::span{order_ids}, id, order_ids_cmp);
 
     if (order_index == -1) [[likely]]
       continue;
@@ -193,7 +187,7 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id, const in
   auto &cumulative_qtys = levels.cumulative_qtys;
 
   static constexpr Comparator prices_cmp;
-  const size_t price_index = utils::rfind(std::span<const int32_t>(prices), price, prices_cmp);
+  const size_t price_index = utils::rfind(std::span{prices}, price, prices_cmp);
 
   auto &cumulative_qty = cumulative_qtys[price_index];
   cumulative_qty -= qty;
@@ -204,7 +198,7 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id, const in
     auto &order_qtys = levels.order_qtys[price_index];
   
     static constexpr std::equal_to<uint64_t> order_ids_cmp;
-    const size_t order_index = utils::rfind(std::span<const uint64_t>(order_ids), id, order_ids_cmp);
+    const size_t order_index = utils::rfind(std::span{order_ids}, id, order_ids_cmp);
   
     std::swap(order_ids[order_index], order_ids.back());
     std::swap(order_qtys[order_index], order_qtys.back());
@@ -253,7 +247,7 @@ HOT void OrderBook::executeOrder(PriceLevels &levels, const uint64_t id, const u
     auto &order_qtys = levels.order_qtys.back();
 
     static constexpr std::equal_to<uint64_t> order_ids_cmp;
-    const size_t order_index = utils::rfind(std::span<const uint64_t>(order_ids), id, order_ids_cmp);
+    const size_t order_index = utils::rfind(std::span{order_ids}, id, order_ids_cmp);
 
     std::swap(order_ids[order_index], order_ids.back());
     std::swap(order_qtys[order_index], order_qtys.back());
