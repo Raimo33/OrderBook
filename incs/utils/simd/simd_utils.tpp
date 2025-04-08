@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-04 21:21:27                                                 
-last edited: 2025-04-06 22:29:03                                                
+last edited: 2025-04-08 20:09:05                                                
 
 ================================================================================*/
 
@@ -94,6 +94,8 @@ HOT PURE ALWAYS_INLINE inline VectorType utils::simd::create_vector(const Scalar
       return _mm_set1_pd(elem);
   }
 #endif
+
+  return VectorType{};
 }
 
 template <typename ScalarType, typename Comparator>
@@ -129,6 +131,8 @@ HOT PURE ALWAYS_INLINE inline constexpr int utils::simd::get_opcode(void)
     if constexpr (std::is_same_v<Comparator, std::greater<ScalarType>>)
       return _CMP_GT_OQ;
   }
+
+  return -1;
 }
 
 template <typename VectorType, typename ScalarType>
@@ -247,4 +251,6 @@ HOT PURE ALWAYS_INLINE inline __mmask64 utils::simd::compare(const VectorType &c
     }
   }
 #endif
+
+  return 0;
 }

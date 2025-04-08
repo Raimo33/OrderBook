@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-08 19:45:06                                                
+last edited: 2025-04-08 20:09:05                                                
 
 ================================================================================*/
 
@@ -33,7 +33,7 @@ COLD OrderBook::OrderBook(void) noexcept :
   asks.order_qtys.emplace_back();
 }
 
-//TODO implement correctly
+//TODO enable
 // COLD OrderBook::OrderBook(OrderBook &&other) noexcept :
 //   bids(std::move(other.bids)),
 //   asks(std::move(other.asks)),
@@ -41,6 +41,7 @@ COLD OrderBook::OrderBook(void) noexcept :
 //   equilibrium_bid_qty(other.equilibrium_bid_qty),
 //   equilibrium_ask_qty(other.equilibrium_ask_qty)
 // {
+//   printf("OrderBook moved\n");
 // }
 
 COLD OrderBook::~OrderBook()
