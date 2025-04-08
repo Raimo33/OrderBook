@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-06 22:29:03                                                
+last edited: 2025-04-08 13:40:04                                                
 
 ================================================================================*/
 
@@ -44,10 +44,8 @@ COLD Client::Client(const Config &config) noexcept :
   mreq.imr_interface.s_addr = bind_address_udp.sin_addr.s_addr;
   mreq.imr_multiaddr.s_addr = multicast_address.sin_addr.s_addr;
 
-  error |= setsockopt(udp_sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1;
+  error |= setsockopt(udp_sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1;  
   error |= connect(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address)) == -1;
-
-  printf("strerror: %s\n", strerror(errno));
 
   CHECK_ERROR;
 }
@@ -59,7 +57,7 @@ COLD sockaddr_in Client::createAddress(const std::string_view ip_str, const std:
 
   sockaddr_in address{};
 
-  address.sin_addr.s_addr = inet_addr(ip);
+  inet_pton(AF_INET, ip, &address.sin_addr);
   address.sin_family = AF_INET;
   address.sin_port = utils::to_network(port);
 
@@ -124,6 +122,7 @@ COLD void Client::run(void)
   fetchOrderbooks();
   printf("fetched orderbooks\n");
   syncSequences();
+  printf("synced sequences\n");
   updateOrderbooks();
 }
 
@@ -133,6 +132,7 @@ COLD void Client::fetchOrderbooks(void)
   recvLogin();
   while (status == FETCHING)
     recvSnapshot();
+  printf("received snapshots\n");
   sendLogout();
 }
 

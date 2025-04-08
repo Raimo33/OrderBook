@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-05 10:36:57                                                 
-last edited: 2025-04-06 22:29:03                                                
+last edited: 2025-04-08 13:40:04                                                
 
 ================================================================================*/
 
@@ -136,7 +136,7 @@ COLD void MessageHandler::handleTradingStatus(UNUSED const MessageData &data)
 HOT void MessageHandler::handleNewLimitOrder(const MessageData &data)
 {
   const auto &new_order = data.new_order;
-  const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side);
+  const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
 
   auto &order_book = getOrderBook(new_order.orderbook_id);
   order_book.addOrder(new_order.order_id, side, new_order.price, new_order.quantity);
@@ -149,6 +149,7 @@ HOT void MessageHandler::handleNewMarketOrder(UNUSED const MessageData &data)
 HOT inline OrderBook &MessageHandler::getOrderBook(const uint32_t orderbook_id) noexcept
 {
   static constexpr std::equal_to<uint32_t> comp{};
-  const size_t idx = utils::find(std::span<const uint32_t>(order_books.ids), orderbook_id, comp);
+  const ssize_t idx = utils::find(std::span<const uint32_t>(order_books.ids), orderbook_id, comp);
+
   return order_books.books[idx];
 }

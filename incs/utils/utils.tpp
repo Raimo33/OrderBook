@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-06 22:29:03                                                
+last edited: 2025-04-08 13:40:04                                                
 
 ================================================================================*/
 
@@ -32,11 +32,12 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
 
   constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
-
   const T *begin = data.data();
   const size_t size = data.size();
   size_t remaining = size;
   const T *it = begin;
+  bool keep_looking;
+  bool found = false;
 
   PREFETCH_R(it, 0);
   const bool safe = (remaining >= chunk_size);
@@ -45,18 +46,20 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
   uint8_t misalignment = utils::simd::misalignment_forwards(it, 64);
   misalignment -= (misalignment > remaining) * (misalignment - remaining);
 
-  bool keep_looking = (misalignment > 0);
+  keep_looking = (misalignment > 0);
   while (keep_looking)
   {
     ++it;
     --misalignment;
     --remaining;
 
-    keep_looking = comp(elem, *it);
+    found = comp(*it, elem);
+
+    keep_looking = !found;
     keep_looking &= (misalignment > 0);
   }
 
-#if defined(__AVX512F__)
+#ifdef __AVX512F__
   constexpr uint8_t UNROLL_FACTOR = 8;
   constexpr uint16_t combined_chunks_size = UNROLL_FACTOR * chunk_size;
 
@@ -64,7 +67,6 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
   constexpr int opcode = utils::simd::get_opcode<T, Comparator>();
   std::array<__m512i, UNROLL_FACTOR> chunks;
   std::array<__mmask64, UNROLL_FACTOR> masks;
-  bool found = false;
 
   keep_looking &= (remaining >= combined_chunks_size);
   while (keep_looking)
@@ -97,14 +99,14 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
   if (found) [[likely]]
   {
     uint8_t i = UNROLL_FACTOR;
-    for (auto mask : masks)
+    for (const auto &mask : masks)
     {
       i++;
       if (mask) [[likely]]
       {
         const uint8_t bit = __builtin_ctzll(mask);
         const uint16_t matched_idx = i * chunk_size + bit;
-        return size - (remaining + combined_chunks_size) + matched_idx;
+        return it - begin - combined_chunks_size + matched_idx;
       }
     }
   }
@@ -116,11 +118,13 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
     ++it;
     --remaining;
 
-    keep_looking = comp(elem, *it);
+    found = comp(*it, elem);
+
+    keep_looking = !found;
     keep_looking &= (remaining > 0);
   }
 
-  return remaining ? size - remaining : -1;
+  return found ? it - begin : -1;
 }
 
 template <typename T, typename Comparator>
@@ -130,11 +134,11 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
 
   constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
-
   const T *begin = data.data();
   size_t remaining = data.size();
   const T *it = begin + remaining;
-  bool keep_looking = true;
+  bool keep_looking;
+  bool found = false;
 
   PREFETCH_R(it, 0);
   const bool safe = (remaining >= chunk_size);
@@ -150,11 +154,13 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
     --misalignment;
     --remaining;
 
-    keep_looking = comp(elem, *it);
+    found = comp(*it, elem);
+
+    keep_looking = !found;
     keep_looking &= (misalignment > 0);
   }
 
-#if defined(__AVX512F__)
+#ifdef __AVX512F__
   constexpr uint8_t UNROLL_FACTOR = 8;
   constexpr uint16_t combined_chunks_size = UNROLL_FACTOR * chunk_size;
 
@@ -162,7 +168,6 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
   constexpr int opcode = utils::simd::get_opcode<T, Comparator>();
   std::array<__m512i, UNROLL_FACTOR> chunks;
   std::array<__mmask64, UNROLL_FACTOR> masks;
-  bool found = false;
 
   keep_looking &= (remaining >= combined_chunks_size);
   while (keep_looking)
@@ -193,14 +198,14 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
   if (found) [[likely]]
   {
     uint8_t i = UNROLL_FACTOR;
-    for (auto mask : masks | std::views::reverse)
+    for (const auto &mask : masks | std::views::reverse)
     {
       i--;
       if (mask) [[likely]]
       {
         const uint8_t bit = 63 - __builtin_ctzll(mask);
         const uint16_t matched_idx = i * chunk_size + bit;
-        return remaining + matched_idx;
+        return it - begin + matched_idx;
       }
     }
   }
@@ -211,12 +216,14 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
   {
     --it;
     --remaining;
-    
-    keep_looking = comp(elem, *it);
+
+    found = comp(*it, elem);
+
+    keep_looking = !found;
     keep_looking &= (remaining > 0);
   }
 
-  return remaining ? remaining : -1;
+  return found ? it - begin : -1;
 }
 
 constexpr bool needs_byte_swap = (std::endian::native == std::endian::little);
