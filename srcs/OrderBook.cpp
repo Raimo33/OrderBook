@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-08 13:40:04                                                
+last edited: 2025-04-08 16:11:46                                                
 
 ================================================================================*/
 
@@ -19,6 +19,8 @@ last edited: 2025-04-08 13:40:04
 extern volatile bool error;
 
 COLD OrderBook::OrderBook(void) noexcept :
+  bids(),
+  asks(),
   equilibrium_price(INT32_MIN),
   equilibrium_bid_qty(0),
   equilibrium_ask_qty(0)
@@ -27,6 +29,10 @@ COLD OrderBook::OrderBook(void) noexcept :
   asks.prices.push_back(INT32_MAX);
   bids.cumulative_qtys.push_back(0);
   asks.cumulative_qtys.push_back(0);
+  bids.order_ids.emplace_back();
+  asks.order_ids.emplace_back();
+  bids.order_qtys.emplace_back();
+  asks.order_qtys.emplace_back();
 }
 
 COLD OrderBook::OrderBook(OrderBook &&other) noexcept :
@@ -55,11 +61,13 @@ HOT void OrderBook::addOrder(const uint64_t id, const Side side, const int32_t p
 
 HOT ALWAYS_INLINE inline void OrderBook::addOrderBid(const uint64_t id, const int32_t price, const uint64_t qty)
 {
+  printf("adding bid order\n");
   addOrder<std::less_equal<int32_t>>(bids, id, price, qty);
 }
 
 HOT ALWAYS_INLINE inline void OrderBook::addOrderAsk(const uint64_t id, const int32_t price, const uint64_t qty)
 {
+  printf("adding ask order\n");
   addOrder<std::greater_equal<int32_t>>(asks, id, price, qty);
 }
 
@@ -71,28 +79,26 @@ HOT void OrderBook::addOrder(PriceLevels &levels, const uint64_t id, const int32
   auto &order_ids = levels.order_ids;
   auto &order_qtys = levels.order_qtys;
 
-  static constexpr Comparator cmp;
-  const ssize_t index = utils::rfind(std::span<const int32_t>(prices), price, cmp);
+  printf("before find prices.size() = %lu\n", prices.size());
 
-  if (index == -1) [[unlikely]] //price is worst than all
-  {
-    prices.insert(prices.cbegin(), price);
-    cumulative_qtys.insert(cumulative_qtys.cbegin(), qty);
-    order_ids.emplace(order_ids.cbegin(), std::vector<uint64_t>{id});
-    order_qtys.emplace(order_qtys.cbegin(), std::vector<uint64_t>{qty});
-  }
-  else if (prices[idx] != price) [[unlikely]] //price doesnt exist
-  {
-    prices.insert(prices.cbegin() + index, price);
-    cumulative_qtys.insert(cumulative_qtys.cbegin() + index, qty);
-    order_ids.emplace(order_ids.cbegin() + index, std::vector<uint64_t>{id});
-    order_qtys.emplace(order_qtys.cbegin() + index, std::vector<uint64_t>{qty});
-  }
-  else //price level exists
+  static constexpr Comparator cmp;
+  ssize_t index = utils::rfind(std::span<const int32_t>(prices), price, cmp);
+
+  printf("after find prices.size() = %lu\n", prices.size());
+
+  if (prices[index] == price) [[likely]]
   {
     prices[index] += qty;
     order_ids[index].push_back(id);
     order_qtys[index].push_back(qty);
+  }
+  else
+  {
+    index++;
+    prices.insert(prices.cbegin() + index, price);
+    cumulative_qtys.insert(cumulative_qtys.cbegin() + index, qty);
+    order_ids.insert(order_ids.cbegin() + index, std::vector<uint64_t>{id});
+    order_qtys.insert(order_qtys.cbegin() + index, std::vector<uint64_t>{qty});
   }
 }
 
@@ -103,6 +109,8 @@ HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
     &OrderBook::removeOrderBid,
     &OrderBook::removeOrderAsk
   };
+
+  printf("removing order\n");
 
   (this->*handlers[side])(id);
 }
@@ -120,6 +128,8 @@ HOT ALWAYS_INLINE inline void OrderBook::removeOrderAsk(const uint64_t id)
 //TODO refactor
 HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
 {
+  printf("removing order\n");
+
   for (auto order_ids_it = levels.order_ids.rbegin(); order_ids_it != levels.order_ids.rend(); ++order_ids_it)
   {
     auto &order_ids = *order_ids_it;

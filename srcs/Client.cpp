@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-08 13:40:04                                                
+last edited: 2025-04-08 16:11:46                                                
 
 ================================================================================*/
 
@@ -120,7 +120,6 @@ COLD Client::~Client(void) noexcept
 COLD void Client::run(void)
 {
   fetchOrderbooks();
-  printf("fetched orderbooks\n");
   syncSequences();
   printf("synced sequences\n");
   updateOrderbooks();
@@ -132,15 +131,14 @@ COLD void Client::fetchOrderbooks(void)
   recvLogin();
   while (status == FETCHING)
     recvSnapshot();
-  printf("received snapshots\n");
   sendLogout();
 }
 
 COLD void Client::syncSequences(void)
 {
-  constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
+  static constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
-  msghdr msg;
+  msghdr msg{};
   iovec iov[2];
   struct Packet {
     MoldUDP64Header header;
@@ -152,17 +150,20 @@ COLD void Client::syncSequences(void)
   msg.msg_iov = iov;
   msg.msg_iovlen = 2;
 
+  printf("synching. this->sequence_number = %lu\n", this->sequence_number);
+
   uint64_t sequence_number = 0;
   while (sequence_number < this->sequence_number - 1)
   {
     recvmsg(udp_sock_fd, &msg, MSG_WAITFORONE);
     sequence_number = packet.header.sequence_number;
+    printf("sequence_number = %lu\n", sequence_number);
   }
 }
 
 HOT void Client::updateOrderbooks(void)
 {
-  constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
+  static constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
   //+1 added for safe prefetching past the last packet 
   alignas(64) mmsghdr mmsgs[MAX_BURST_PACKETS+1];
@@ -210,8 +211,8 @@ COLD void Client::sendLogin(void) const
 {
   SoupBinTCPPacket packet;
   auto &body = packet.body;
-  constexpr uint16_t body_length = sizeof(body.type) + sizeof(body.login_request);
-  constexpr uint16_t packet_size = sizeof(packet.body_length) + body_length;
+  static constexpr uint16_t body_length = sizeof(body.type) + sizeof(body.login_request);
+  static constexpr uint16_t packet_size = sizeof(packet.body_length) + body_length;
 
   packet.body_length = body_length;
 
@@ -240,9 +241,13 @@ COLD void Client::recvLogin(void)
       recvLogin();
       break;
     case 'A':
-      sequence_number = std::stoull(packet.body.login_acceptance.sequence);
+    {
+      const auto &response = packet.body.login_acceptance;
+      std::string sequence_str = std::string(response.sequence, sizeof(response.sequence));
+      sequence_number = std::stoull(sequence_str);
       status = FETCHING;
       break;
+    }
     default:
       panic();
   }
@@ -280,7 +285,7 @@ COLD void Client::sendLogout(void) const
   packet.body_length = 1;
   packet.body.type = 'Z';
 
-  constexpr uint16_t packet_size = sizeof(packet.body_length) + sizeof(packet.body.type);
+  static constexpr uint16_t packet_size = sizeof(packet.body_length) + sizeof(packet.body.type);
   error |= send(tcp_sock_fd, &packet, packet_size, MSG_WAITALL) == -1;
   CHECK_ERROR;
 }

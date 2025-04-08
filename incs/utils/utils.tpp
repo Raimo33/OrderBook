@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-08 13:40:04                                                
+last edited: 2025-04-08 16:11:46                                                
 
 ================================================================================*/
 
@@ -25,8 +25,9 @@ last edited: 2025-04-08 13:40:04
 namespace utils
 {
 
+//finds the first element that satisfies the comparator condition
 template <typename T, typename Comparator>
-HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp) noexcept
+HOT ssize_t find(std::span<const T> data, const T elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
@@ -60,8 +61,8 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
   }
 
 #ifdef __AVX512F__
-  constexpr uint8_t UNROLL_FACTOR = 8;
-  constexpr uint16_t combined_chunks_size = UNROLL_FACTOR * chunk_size;
+  static constexpr uint8_t UNROLL_FACTOR = 8;
+  static constexpr uint16_t combined_chunks_size = UNROLL_FACTOR * chunk_size;
 
   const __m512i elem_vec = utils::simd::create_vector<__m512i, T>(elem);
   constexpr int opcode = utils::simd::get_opcode<T, Comparator>();
@@ -127,8 +128,9 @@ HOT ssize_t find(std::span<const T> data, const T &elem, const Comparator &comp)
   return found ? it - begin : -1;
 }
 
+//finds the last element that satisfies the comparator condition
 template <typename T, typename Comparator>
-HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp) noexcept
+HOT ssize_t rfind(std::span<const T> data, const T elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
@@ -161,8 +163,8 @@ HOT ssize_t rfind(std::span<const T> data, const T &elem, const Comparator &comp
   }
 
 #ifdef __AVX512F__
-  constexpr uint8_t UNROLL_FACTOR = 8;
-  constexpr uint16_t combined_chunks_size = UNROLL_FACTOR * chunk_size;
+  static constexpr uint8_t UNROLL_FACTOR = 8;
+  static constexpr uint16_t combined_chunks_size = UNROLL_FACTOR * chunk_size;
 
   const __m512i elem_vec = utils::simd::create_vector<__m512i, T>(elem);
   constexpr int opcode = utils::simd::get_opcode<T, Comparator>();
