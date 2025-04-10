@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-05 10:36:57                                                 
-last edited: 2025-04-08 19:45:06                                                
+last edited: 2025-04-10 21:32:16                                                
 
 ================================================================================*/
 
@@ -167,7 +167,7 @@ HOT void MessageHandler::handleNewMarketOrder(UNUSED const MessageData &data)
 HOT inline OrderBook &MessageHandler::getOrderBook(const uint32_t orderbook_id) noexcept
 {
   static constexpr std::equal_to<uint32_t> comp{};
-  const ssize_t idx = utils::find(std::span{order_books.ids}, orderbook_id, comp);
+  const ssize_t idx = utils::find(std::span<const uint32_t>{order_books.ids}, orderbook_id, comp);
 
   return order_books.books[idx];
 }

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-08 18:40:40                                                
+last edited: 2025-04-10 21:32:16                                                
 
 ================================================================================*/
 
@@ -27,7 +27,7 @@ namespace utils
 
 //finds the first element that satisfies the comparator condition
 template <typename T, typename Comparator>
-HOT ssize_t find(std::span<T> data, const T elem, const Comparator &comp) noexcept
+HOT ssize_t find(std::span<const T> data, const T elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
@@ -130,7 +130,7 @@ HOT ssize_t find(std::span<T> data, const T elem, const Comparator &comp) noexce
 
 //finds the first element that satisfies the comparator condition
 template <typename T, typename Comparator>
-HOT ssize_t rfind(std::span<T> data, const T elem, const Comparator &comp) noexcept
+HOT ssize_t rfind(std::span<const T> data, const T elem, const Comparator &comp) noexcept
 {
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
