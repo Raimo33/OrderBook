@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-10 20:10:41                                                
+last edited: 2025-04-10 21:05:11                                                
 
 ================================================================================*/
 
@@ -83,7 +83,7 @@ class OrderBook
     void executeOrder(PriceLevels &levels, const uint64_t id, const uint64_t qty);
 
     void removeOrderFromPriceLevel(PriceLevels &levels, const size_t price_index, const uint64_t id);
-    void removePriceLevel(PriceLevels &levels, const size_t price_index);
+    void removePriceLevel(PriceLevels &levels, const size_t price_index, UNUSED const uint64_t id);
 };
 
 #include "OrderBook.inl"

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-10 20:10:41                                                
+last edited: 2025-04-10 21:05:11                                                
 
 ================================================================================*/
 
@@ -142,7 +142,7 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
       order_qtys.pop_back();
     }
     else
-      removePriceLevel(levels, price_index);
+      removePriceLevel(levels, price_index, 0);
   }
 }
 
@@ -179,7 +179,7 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id, const in
   if (cumulative_qty > 0) [[likely]]
     removeOrderFromPriceLevel(levels, price_index, id);
   else
-    removePriceLevel(levels, price_index);
+    removePriceLevel(levels, price_index, 0);
 }
 
 HOT void OrderBook::executeOrder(const uint64_t id, const Side side, const uint64_t qty)
@@ -210,11 +210,14 @@ HOT void OrderBook::executeOrder(PriceLevels &levels, const uint64_t id, const u
   auto &cumulative_qty = levels.cumulative_qtys.back();
   cumulative_qty -= qty;
 
-  //TODO make branchless (hard to predict)
-  if (cumulative_qty > 0) [[likely]]
-    removeOrderFromPriceLevel(levels, price_index, id);
-  else
-    removePriceLevel(levels, price_index);
+  using Handler = void (OrderBook::*)(PriceLevels &, const size_t, const uint64_t);
+  static constexpr Handler handlers[] = {
+    &OrderBook::removeOrderFromPriceLevel,
+    &OrderBook::removePriceLevel
+  };
+
+  const uint8_t index = (cumulative_qty == 0);
+  (this->*handlers[index])(levels, price_index, id);
 }
 
 HOT void OrderBook::removeOrderFromPriceLevel(PriceLevels &levels, const size_t price_index, const uint64_t id)
@@ -231,7 +234,7 @@ HOT void OrderBook::removeOrderFromPriceLevel(PriceLevels &levels, const size_t 
   order_qtys.pop_back();
 }
 
-HOT void OrderBook::removePriceLevel(PriceLevels &levels, const size_t price_index)
+HOT void OrderBook::removePriceLevel(PriceLevels &levels, const size_t price_index, UNUSED const uint64_t id)
 {
   auto &prices = levels.prices;
   auto &cumulative_qtys = levels.cumulative_qtys;
