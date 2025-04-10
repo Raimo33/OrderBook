@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-08 19:45:06                                                
+last edited: 2025-04-10 20:10:41                                                
 
 ================================================================================*/
 
@@ -21,7 +21,7 @@ class OrderBook
 {
   public:
     OrderBook(void) noexcept;
-    // OrderBook(OrderBook &&) noexcept;
+    OrderBook(OrderBook &&) noexcept;
     ~OrderBook();
 
     enum Side : uint8_t { BID = 0, ASK = 1 };
@@ -81,6 +81,9 @@ class OrderBook
     void executeOrderBid(const uint64_t id, const uint64_t qty);
     void executeOrderAsk(const uint64_t id, const uint64_t qty);
     void executeOrder(PriceLevels &levels, const uint64_t id, const uint64_t qty);
+
+    void removeOrderFromPriceLevel(PriceLevels &levels, const size_t price_index, const uint64_t id);
+    void removePriceLevel(PriceLevels &levels, const size_t price_index);
 };
 
 #include "OrderBook.inl"

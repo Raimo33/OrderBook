@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-08 20:09:05                                                
+last edited: 2025-04-10 20:10:41                                                
 
 ================================================================================*/
 
@@ -33,16 +33,14 @@ COLD OrderBook::OrderBook(void) noexcept :
   asks.order_qtys.emplace_back();
 }
 
-//TODO enable
-// COLD OrderBook::OrderBook(OrderBook &&other) noexcept :
-//   bids(std::move(other.bids)),
-//   asks(std::move(other.asks)),
-//   equilibrium_price(other.equilibrium_price),
-//   equilibrium_bid_qty(other.equilibrium_bid_qty),
-//   equilibrium_ask_qty(other.equilibrium_ask_qty)
-// {
-//   printf("OrderBook moved\n");
-// }
+COLD OrderBook::OrderBook(OrderBook &&other) noexcept :
+  bids(std::move(other.bids)),
+  asks(std::move(other.asks)),
+  equilibrium_price(other.equilibrium_price),
+  equilibrium_bid_qty(other.equilibrium_bid_qty),
+  equilibrium_ask_qty(other.equilibrium_ask_qty)
+{
+}
 
 COLD OrderBook::~OrderBook()
 {
@@ -82,7 +80,7 @@ HOT void OrderBook::addOrder(PriceLevels &levels, const uint64_t id, const int32
 
   if (prices[index] == price) [[likely]]
   {
-    prices[index] += qty;
+    cumulative_qtys[index] += qty;
     order_ids[index].push_back(id);
     order_qtys[index].push_back(qty);
   }
@@ -117,7 +115,6 @@ HOT ALWAYS_INLINE inline void OrderBook::removeOrderAsk(const uint64_t id)
   removeOrder(asks, id);
 }
 
-//TODO refactor
 HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
 {
   for (auto order_ids_it = levels.order_ids.rbegin(); order_ids_it != levels.order_ids.rend(); ++order_ids_it)
@@ -126,7 +123,6 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
 
     static constexpr std::equal_to<uint64_t> order_ids_cmp;
     const ssize_t order_index = utils::rfind(std::span{order_ids}, id, order_ids_cmp);
-
     if (order_index == -1) [[likely]]
       continue;
 
@@ -140,18 +136,13 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id)
     cumulative_qty -= qty;
     if (cumulative_qty > 0) [[likely]]
     {
-      std::swap(order_ids[order_index], order_ids.back());
-      std::swap(order_qtys[order_index], order_qtys.back());
+      order_ids[order_index] = order_ids.back();
+      order_qtys[order_index] = order_qtys.back();
       order_ids.pop_back();
       order_qtys.pop_back();
     }
     else
-    {
-      levels.prices.erase(levels.prices.cbegin() + price_index);
-      levels.cumulative_qtys.erase(levels.cumulative_qtys.cbegin() + price_index);
-      levels.order_ids.erase(order_ids_it.base());
-      levels.order_qtys.erase(levels.order_qtys.cbegin() + price_index);
-    }
+      removePriceLevel(levels, price_index);
   }
 }
 
@@ -179,35 +170,16 @@ HOT ALWAYS_INLINE inline void OrderBook::removeOrderAsk(const uint64_t id, const
 template<typename Comparator>
 HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id, const int32_t price, const uint64_t qty)
 {
-  auto &prices = levels.prices;
-  auto &cumulative_qtys = levels.cumulative_qtys;
-
   static constexpr Comparator prices_cmp;
-  const size_t price_index = utils::rfind(std::span{prices}, price, prices_cmp);
+  const size_t price_index = utils::rfind(std::span{levels.prices}, price, prices_cmp);
 
-  auto &cumulative_qty = cumulative_qtys[price_index];
+  auto &cumulative_qty = levels.cumulative_qtys[price_index];
   cumulative_qty -= qty;
 
   if (cumulative_qty > 0) [[likely]]
-  {
-    auto &order_ids = levels.order_ids[price_index];
-    auto &order_qtys = levels.order_qtys[price_index];
-  
-    static constexpr std::equal_to<uint64_t> order_ids_cmp;
-    const size_t order_index = utils::rfind(std::span{order_ids}, id, order_ids_cmp);
-  
-    std::swap(order_ids[order_index], order_ids.back());
-    std::swap(order_qtys[order_index], order_qtys.back());
-    order_ids.pop_back();
-    order_qtys.pop_back();
-  }
+    removeOrderFromPriceLevel(levels, price_index, id);
   else
-  {
-    prices.erase(prices.cbegin() + price_index);
-    cumulative_qtys.erase(cumulative_qtys.cbegin() + price_index);
-    levels.order_ids.erase(levels.order_ids.cbegin() + price_index);
-    levels.order_qtys.erase(levels.order_qtys.cbegin() + price_index);
-  }
+    removePriceLevel(levels, price_index);
 }
 
 HOT void OrderBook::executeOrder(const uint64_t id, const Side side, const uint64_t qty)
@@ -233,30 +205,43 @@ HOT ALWAYS_INLINE inline void OrderBook::executeOrderAsk(const uint64_t id, cons
 
 HOT void OrderBook::executeOrder(PriceLevels &levels, const uint64_t id, const uint64_t qty)
 {
-  auto &cumulative_qty = levels.cumulative_qtys.back();
+  const size_t price_index = levels.prices.size() - 1;
 
+  auto &cumulative_qty = levels.cumulative_qtys.back();
   cumulative_qty -= qty;
 
+  //TODO make branchless (hard to predict)
   if (cumulative_qty > 0) [[likely]]
-  {
-    auto &order_ids = levels.order_ids.back();
-    auto &order_qtys = levels.order_qtys.back();
-
-    static constexpr std::equal_to<uint64_t> order_ids_cmp;
-    const size_t order_index = utils::rfind(std::span{order_ids}, id, order_ids_cmp);
-
-    std::swap(order_ids[order_index], order_ids.back());
-    std::swap(order_qtys[order_index], order_qtys.back());
-    order_ids.pop_back();
-    order_qtys.pop_back();
-  }
+    removeOrderFromPriceLevel(levels, price_index, id);
   else
-  {
-    levels.prices.pop_back();
-    levels.cumulative_qtys.pop_back();
-    levels.order_ids.pop_back();
-    levels.order_qtys.pop_back();
-  }
+    removePriceLevel(levels, price_index);
+}
+
+HOT void OrderBook::removeOrderFromPriceLevel(PriceLevels &levels, const size_t price_index, const uint64_t id)
+{
+  auto &order_ids = levels.order_ids[price_index];
+  auto &order_qtys = levels.order_qtys[price_index];
+
+  static constexpr std::equal_to<uint64_t> order_ids_cmp;
+  const ssize_t order_index = utils::rfind(std::span{order_ids}, id, order_ids_cmp);
+
+  order_ids[order_index] = order_ids.back();
+  order_qtys[order_index] = order_qtys.back();
+  order_ids.pop_back();
+  order_qtys.pop_back();
+}
+
+HOT void OrderBook::removePriceLevel(PriceLevels &levels, const size_t price_index)
+{
+  auto &prices = levels.prices;
+  auto &cumulative_qtys = levels.cumulative_qtys;
+  auto &order_ids = levels.order_ids;
+  auto &order_qtys = levels.order_qtys;
+
+  prices.erase(prices.cbegin() + price_index);
+  cumulative_qtys.erase(cumulative_qtys.cbegin() + price_index);
+  order_ids.erase(order_ids.cbegin() + price_index);
+  order_qtys.erase(order_qtys.cbegin() + price_index);
 }
 
 
