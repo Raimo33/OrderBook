@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-10 21:32:16                                                
+last edited: 2025-04-13 11:58:50                                                
 
 ================================================================================*/
 
@@ -167,10 +167,14 @@ HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id, const in
   auto &cumulative_qty = levels.cumulative_qtys[price_idx];
   cumulative_qty -= qty;
 
-  if (cumulative_qty > 0) [[likely]]
-    removeOrderFromPriceLevel(levels, price_idx, id);
-  else
-    removePriceLevel(levels, price_idx, 0);
+  using Handler = void (OrderBook::*)(PriceLevels &, const size_t, const uint64_t);
+  static constexpr Handler handlers[] = {
+    &OrderBook::removeOrderFromPriceLevel,
+    &OrderBook::removePriceLevel
+  };
+
+  const uint8_t idx = (cumulative_qty == 0);
+  (this->*handlers[idx])(levels, price_idx, id);
 }
 
 HOT void OrderBook::executeOrder(const uint64_t id, const Side side, const uint64_t qty)
