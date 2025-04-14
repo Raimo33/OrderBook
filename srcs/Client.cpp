@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-08 19:45:06                                                
+last edited: 2025-04-14 19:50:33                                                
 
 ================================================================================*/
 
@@ -44,7 +44,7 @@ COLD Client::Client(const Config &config) noexcept :
   mreq.imr_interface.s_addr = bind_address_udp.sin_addr.s_addr;
   mreq.imr_multiaddr.s_addr = multicast_address.sin_addr.s_addr;
 
-  error |= setsockopt(udp_sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1;  
+  error |= setsockopt(udp_sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) == -1;
   error |= connect(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&glimpse_address), sizeof(glimpse_address)) == -1;
 
   CHECK_ERROR;
@@ -152,9 +152,7 @@ COLD void Client::syncSequences(void)
   uint64_t sequence_number = 0;
   while (sequence_number < this->sequence_number - 1)
   {
-    printf("before recvmsg\n");
     recvmsg(udp_sock_fd, &msg, MSG_WAITFORONE);
-    printf("after recvmsg\n");
     sequence_number = utils::to_host(packet.header.sequence_number);
   }
 }

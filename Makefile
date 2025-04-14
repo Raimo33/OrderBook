@@ -15,12 +15,12 @@ CXXFLAGS += -Wall -Wextra -pedantic
 #architecture
 CXXFLAGS += -march=znver2 -mtune=znver2
 #promises
-# CXXFLAGS += -fomit-frame-pointer -fno-exceptions -fno-rtti -fstrict-aliasing -fno-math-errno -fno-stack-protector
+CXXFLAGS += -fomit-frame-pointer -fno-exceptions -fno-rtti -fstrict-aliasing -fno-math-errno -fno-stack-protector
 
 # #overall settings
-# CXXFLAGS += -funit-at-a-time -fexpensive-optimizations -fvect-cost-model=dynamic
+CXXFLAGS += -funit-at-a-time -fexpensive-optimizations -fvect-cost-model=dynamic
 # #math
-# CXXFLAGS += -freciprocal-math -fsingle-precision-constant -ffp-contract=fast
+CXXFLAGS += -freciprocal-math -fsingle-precision-constant -ffp-contract=fast
 # #cleanup
 # CXXFLAGS += -ftree-pta -ftree-copy-prop -ftree-forwprop -ftree-phiprop -ftree-scev-cprop
 # CXXFLAGS += -ftree-dce -ftree-builtin-call-dce -ftree-ccp -ftree-bit-ccp -ftree-dominator-opts -ftree-ch -ftree-coalesce-vars -ftree-sink -ftree-slsr -ftree-sra -ftree-pre -ftree-partial-pre -ftree-dse -ftree-vrp
@@ -45,7 +45,7 @@ CXXFLAGS += -march=znver2 -mtune=znver2
 # CXXFLAGS += -falign-functions -falign-jumps -falign-labels -falign-loops
 # CXXFLAGS += -fcaller-saves -fdefer-pop -fguess-branch-probability
 #linker
-# CXXFLAGS += -fno-plt -fuse-linker-plugin -flto
+CXXFLAGS += -fno-plt -fuse-linker-plugin -flto
 
 CXXFLAGS += -I$(INCS_DIR)
 

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-10 21:32:15                                                
+last edited: 2025-04-14 19:50:33                                                
 
 ================================================================================*/
 
@@ -57,36 +57,25 @@ class OrderBook
       std::vector<std::vector<uint64_t>> order_qtys;
     };
 
-    PriceLevels bids;
-    PriceLevels asks;
+    std::array<PriceLevels, 2> book_sides;
 
     int32_t equilibrium_price;
     uint64_t equilibrium_bid_qty;
     uint64_t equilibrium_ask_qty;
 
-    void addOrderBid(const uint64_t id, const int32_t price, const uint64_t qty);
-    void addOrderAsk(const uint64_t id, const int32_t price, const uint64_t qty);
-    template <typename Compare>
+    inline void addOrderBid(const uint64_t id, const int32_t price, const uint64_t qty);
+    inline void addOrderAsk(const uint64_t id, const int32_t price, const uint64_t qty);
+    template<typename Comparator>
     void addOrder(PriceLevels &levels, const uint64_t id, const int32_t price, const uint64_t qty);
-
-    void removeOrderBid(const uint64_t id);
-    void removeOrderAsk(const uint64_t id);
-    void removeOrder(PriceLevels &levels, const uint64_t id);
-
-    void removeOrderBid(const uint64_t id, const int32_t price, const uint64_t qty);
-    void removeOrderAsk(const uint64_t id, const int32_t price, const uint64_t qty);
-    template <typename Compare>
-    void removeOrder(PriceLevels &levels, const uint64_t id, const int32_t price, const uint64_t qty);
-
-    void executeOrderBid(const uint64_t id, const uint64_t qty);
-    void executeOrderAsk(const uint64_t id, const uint64_t qty);
-    void executeOrder(PriceLevels &levels, const uint64_t id, const uint64_t qty);
-
-    void addOrderToExistingPriceLevel(PriceLevels &levels, const size_t price_idx, const int32_t price, const uint64_t id, const uint64_t qty);
+    void addOrderToExistingPriceLevel(PriceLevels &levels, const size_t price_idx, UNUSED const int32_t price, const uint64_t id, const uint64_t qty);
     void addOrderToNewPriceLevel(PriceLevels &levels, const size_t price_idx, const int32_t price, const uint64_t id, const uint64_t qty);
 
+    inline void removeOrderBid(const uint64_t id, const int32_t price, const uint64_t qty);
+    inline void removeOrderAsk(const uint64_t id, const int32_t price, const uint64_t qty);
+    template<typename Comparator>
+    void removeOrder(PriceLevels &levels, const uint64_t id, const int32_t price, const uint64_t qty);
     void removeOrderFromPriceLevel(PriceLevels &levels, const size_t price_idx, const uint64_t id);
-    void removePriceLevel(PriceLevels &levels, const size_t price_idx, UNUSED const uint64_t id);
+    void removePriceLevel(PriceLevels &levels, const size_t price_idx, const uint64_t id);
 };
 
 #include "OrderBook.inl"
