@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-10 21:32:15                                                
+last edited: 2025-04-16 19:38:28                                                
 
 ================================================================================*/
 
@@ -19,10 +19,10 @@ last edited: 2025-04-10 21:32:15
 namespace utils
 {
   template <typename T, typename Comparator>
-  ssize_t find(std::span<const T> data, const T elem, const Comparator &comp) noexcept;
+  ssize_t forward_lower_bound(std::span<const T> data, const T elem, const Comparator &comp) noexcept;
 
   template <typename T, typename Comparator>
-  ssize_t rfind(std::span<const T> data, const T elem, const Comparator &comp) noexcept;
+  ssize_t backward_lower_bound(std::span<const T> data, const T elem, const Comparator &comp) noexcept;
 
   template <typename T>
   inline T to_host(const T &value) noexcept;

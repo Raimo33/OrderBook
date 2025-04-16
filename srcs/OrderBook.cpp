@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-14 19:50:33                                                
+last edited: 2025-04-16 19:38:28                                                
 
 ================================================================================*/
 
@@ -68,7 +68,7 @@ HOT void OrderBook::removeOrder(const uint64_t id, const Side side)
     auto &order_ids = *order_ids_it;
 
     static constexpr std::equal_to<uint64_t> order_ids_cmp;
-    const ssize_t order_idx = utils::find(std::span<const uint64_t>{order_ids}, id, order_ids_cmp);
+    const ssize_t order_idx = utils::forward_lower_bound(std::span<const uint64_t>{order_ids}, id, order_ids_cmp);
     if (order_idx == -1) [[likely]]
       continue;
 
@@ -127,7 +127,7 @@ HOT void OrderBook::addOrder(PriceLevels &levels, const uint64_t id, const int32
   const auto &prices = levels.prices;
 
   static constexpr Comparator cmp;
-  ssize_t price_idx = utils::rfind(std::span<const int32_t>{prices}, price, cmp);
+  ssize_t price_idx = utils::backward_lower_bound(std::span<const int32_t>{prices}, price, cmp);
 
   using Handler = void (OrderBook::*)(PriceLevels &, const size_t, const int32_t, const uint64_t, const uint64_t);
   static constexpr Handler handlers[] = {
@@ -169,7 +169,7 @@ template<typename Comparator>
 HOT void OrderBook::removeOrder(PriceLevels &levels, const uint64_t id, const int32_t price, const uint64_t qty)
 {
   static constexpr Comparator prices_cmp;
-  const size_t price_idx = utils::rfind(std::span<const int32_t>{levels.prices}, price, prices_cmp);
+  const size_t price_idx = utils::backward_lower_bound(std::span<const int32_t>{levels.prices}, price, prices_cmp);
 
   auto &cumulative_qty = levels.cumulative_qtys[price_idx];
   cumulative_qty -= qty;
@@ -190,7 +190,7 @@ HOT void OrderBook::removeOrderFromPriceLevel(PriceLevels &levels, const size_t 
   auto &order_qtys = levels.order_qtys[price_idx];
 
   static constexpr std::equal_to<uint64_t> order_ids_cmp;
-  const ssize_t order_idx = utils::find(std::span<const uint64_t>{order_ids}, id, order_ids_cmp);
+  const ssize_t order_idx = utils::forward_lower_bound(std::span<const uint64_t>{order_ids}, id, order_ids_cmp);
 
   order_ids[order_idx] = order_ids.back();
   order_qtys[order_idx] = order_qtys.back();
