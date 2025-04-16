@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-14 19:50:33                                                
+last edited: 2025-04-16 17:40:46                                                
 
 ================================================================================*/
 
@@ -37,6 +37,9 @@ COLD Client::Client(const Config &config) noexcept :
   sequence_number(0),
   status(CONNECTING)
 {
+  for (const auto &id : config.book_ids)
+    message_handler.addBookId(id);
+
   error |= bind(tcp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_tcp), sizeof(bind_address_tcp)) == -1;
   error |= bind(udp_sock_fd, reinterpret_cast<const sockaddr *>(&bind_address_udp), sizeof(bind_address_udp)) == -1;
 

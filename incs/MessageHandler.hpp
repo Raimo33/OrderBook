@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-06 18:55:50                                                 
-last edited: 2025-04-08 19:45:06                                                
+last edited: 2025-04-16 17:40:46                                                
 
 ================================================================================*/
 
@@ -13,6 +13,7 @@ last edited: 2025-04-08 19:45:06
 
 #include <cstdint>
 #include <vector>
+#include <unordered_set>
 
 #include "OrderBook.hpp"
 #include "Packets.hpp"
@@ -23,6 +24,7 @@ class MessageHandler
     MessageHandler(void) noexcept;
     ~MessageHandler() noexcept;
 
+    inline void addBookId(const uint32_t orderbook_id);
     void handleMessage(const MessageData &data);
 
   private:
@@ -43,11 +45,15 @@ class MessageHandler
     void handleNewLimitOrder(const MessageData &data);
     void handleNewMarketOrder(const MessageData &data);
 
-    OrderBook &getOrderBook(const uint32_t orderbook_id) noexcept;
+    OrderBook *getOrderBook(const uint32_t orderbook_id) noexcept;
 
     struct OrderBooks
     {
       std::vector<uint32_t> ids;
       std::vector<OrderBook> books;
     } order_books;
+
+    std::unordered_set<uint32_t> monitored_orderbooks;
 };
+
+#include "MessageHandler.inl"

@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-05 10:36:57                                                 
-last edited: 2025-04-10 21:32:16                                                
+last edited: 2025-04-16 17:40:46                                                
 
 ================================================================================*/
 
@@ -18,6 +18,9 @@ last edited: 2025-04-10 21:32:16
 #include "utils/utils.hpp"
 #include "macros.hpp"
 #include "error.hpp"
+
+using OrderBookOp = void (*)(OrderBook *, const MessageData &);
+static constexpr OrderBookOp noOp = +[](OrderBook *, const MessageData &) noexcept {};
 
 COLD MessageHandler::MessageHandler(void) noexcept
 {
@@ -69,50 +72,90 @@ HOT void MessageHandler::handleNewOrder(const MessageData &data)
 
 HOT void MessageHandler::handleDeletedOrder(const MessageData &data)
 {
-  const auto &deleted_order = data.deleted_order;
-  const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
-  const uint32_t orderbook_id = utils::to_host(deleted_order.orderbook_id);
-  const uint64_t order_id = utils::to_host(deleted_order.order_id);
+  const uint32_t orderbook_id = utils::to_host(data.deleted_order.orderbook_id);
 
-  auto &order_book = getOrderBook(orderbook_id);
-  order_book.removeOrder(order_id, side);
+  OrderBook *book = getOrderBook(orderbook_id);
+  const uint8_t is_valid = !!book;
+
+  static constexpr OrderBookOp removeOrder = +[](OrderBook *book, const MessageData &data) noexcept
+  {
+    const auto &deleted_order = data.deleted_order;
+
+    const uint64_t order_id = utils::to_host(deleted_order.order_id);
+    const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
+
+    book->removeOrder(order_id, side);
+  };
+
+  static constexpr OrderBookOp handlers[] = {noOp, removeOrder};
+  handlers[is_valid](book, data);
 }
 
 HOT void MessageHandler::handleExecutionNotice(const MessageData &data)
 {
-  const auto &execution = data.execution_notice;
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution.side == 'S');
-  const uint32_t orderbook_id = utils::to_host(execution.orderbook_id);
-  const uint64_t order_id = utils::to_host(execution.order_id);
-  const uint64_t executed_quantity = utils::to_host(execution.executed_quantity);
+  const uint32_t orderbook_id = utils::to_host(data.execution_notice.orderbook_id);
 
-  auto &order_book = getOrderBook(orderbook_id);
-  order_book.executeOrder(order_id, resting_side, executed_quantity);
+  OrderBook *book = getOrderBook(orderbook_id);
+  const uint8_t is_valid = !!book;
+
+  static constexpr OrderBookOp executeOrder = +[](OrderBook *book, const MessageData &data) noexcept
+  {
+    const auto &execution = data.execution_notice;
+
+    const uint64_t order_id = utils::to_host(execution.order_id);
+    const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution.side == 'S');
+    const uint64_t executed_quantity = utils::to_host(execution.executed_quantity);
+
+    book->executeOrder(order_id, resting_side, executed_quantity);
+  };
+
+  static constexpr OrderBookOp handlers[] = {noOp, executeOrder};
+  handlers[is_valid](book, data);
 }
 
 HOT void MessageHandler::handleExecutionNoticeWithTradeInfo(const MessageData &data)
 {
-  const auto &execution = data.execution_notice_with_trade_info;
-  const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution.side == 'S');
-  const uint32_t orderbook_id = utils::to_host(execution.orderbook_id);
-  const uint64_t order_id = utils::to_host(execution.order_id);
-  const uint64_t executed_quantity = utils::to_host(execution.executed_quantity);
-  const uint32_t trade_price = utils::to_host(execution.trade_price);
+  const uint32_t orderbook_id = utils::to_host(data.execution_notice_with_trade_info.orderbook_id);
 
-  auto &order_book = getOrderBook(orderbook_id);
-  order_book.removeOrder(order_id, resting_side, trade_price, executed_quantity);
+  OrderBook *book = getOrderBook(orderbook_id);
+  const uint8_t is_valid = !!book;
+
+  static constexpr OrderBookOp removeOrder = +[](OrderBook *book, const MessageData &data) noexcept
+  {
+    const auto &execution = data.execution_notice_with_trade_info;
+
+    const uint64_t order_id = utils::to_host(execution.order_id);
+    const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution.side == 'S');
+    const uint32_t trade_price = utils::to_host(execution.trade_price);
+    const uint64_t executed_quantity = utils::to_host(execution.executed_quantity);
+
+    book->removeOrder(order_id, resting_side, trade_price, executed_quantity);
+  };
+
+  static constexpr OrderBookOp handlers[] = {noOp, removeOrder};
+  handlers[is_valid](book, data);
 }
 
 void MessageHandler::handleEquilibriumPrice(const MessageData &data)
 {
-  const auto &ep = data.ep;
-  const uint32_t orderbook_id = utils::to_host(ep.orderbook_id);
-  const uint32_t equilibrium_price = utils::to_host(ep.equilibrium_price);
-  const uint64_t bid_quantity = utils::to_host(ep.available_bid_quantity);
-  const uint64_t ask_quantity = utils::to_host(ep.available_ask_quantity);
+  const uint32_t orderbook_id = utils::to_host(data.ep.orderbook_id);
 
-  auto &order_book = getOrderBook(orderbook_id);
-  order_book.setEquilibrium(equilibrium_price, bid_quantity, ask_quantity);
+  OrderBook *book = getOrderBook(orderbook_id);
+  const uint8_t is_valid = !!book;
+
+  static constexpr OrderBookOp setEquilibriumPrice = +[](OrderBook *book, const MessageData &data) noexcept
+  {
+    const auto &ep = data.ep;
+
+    const uint32_t equilibrium_price = utils::to_host(ep.equilibrium_price);
+    const uint64_t bid_quantity = utils::to_host(ep.available_bid_quantity);
+    const uint64_t ask_quantity = utils::to_host(ep.available_ask_quantity);
+
+    book->setEquilibrium(equilibrium_price, bid_quantity, ask_quantity);
+  };
+
+  static constexpr OrderBookOp handlers[] = {noOp, setEquilibriumPrice};
+  handlers[is_valid](book, data);
 }
 
 HOT void MessageHandler::handleSeconds(UNUSED const MessageData &data)
@@ -123,6 +166,9 @@ COLD void MessageHandler::handleSeriesInfoBasic(const MessageData &data)
 {
   const auto &series_info_basic = data.series_info_basic;
   const uint32_t orderbook_id = utils::to_host(series_info_basic.orderbook_id);
+
+  if (monitored_orderbooks.contains(orderbook_id) == false)
+    return;
 
   order_books.ids.push_back(orderbook_id);
   order_books.books.emplace_back();
@@ -149,25 +195,39 @@ COLD void MessageHandler::handleTradingStatus(UNUSED const MessageData &data)
 
 HOT void MessageHandler::handleNewLimitOrder(const MessageData &data)
 {
-  const auto &new_order = data.new_order;
-  const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
-  const uint32_t orderbook_id = utils::to_host(new_order.orderbook_id);
-  const uint64_t order_id = utils::to_host(new_order.order_id);
-  const int32_t price = utils::to_host(new_order.price);
-  const uint64_t quantity = utils::to_host(new_order.quantity);
+  const uint32_t orderbook_id = utils::to_host(data.new_order.orderbook_id);
 
-  auto &order_book = getOrderBook(orderbook_id);
-  order_book.addOrder(order_id, side, price, quantity);
+  OrderBook *book = getOrderBook(orderbook_id);
+  const uint8_t is_valid = !!book;
+
+  static constexpr OrderBookOp addOrder = +[](OrderBook *book, const MessageData &data) noexcept
+  {
+    const auto &new_order = data.new_order;
+
+    const uint64_t order_id = utils::to_host(new_order.order_id);
+    const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
+    const int32_t price = utils::to_host(new_order.price);
+    const uint64_t quantity = utils::to_host(new_order.quantity);
+
+    book->addOrder(order_id, side, price, quantity);
+  };
+
+  static constexpr OrderBookOp handlers[] = {noOp, addOrder};
+  handlers[is_valid](book, data);
 }
 
 HOT void MessageHandler::handleNewMarketOrder(UNUSED const MessageData &data)
 {
 }
 
-HOT inline OrderBook &MessageHandler::getOrderBook(const uint32_t orderbook_id) noexcept
+HOT inline OrderBook *MessageHandler::getOrderBook(const uint32_t orderbook_id) noexcept
 {
   static constexpr std::equal_to<uint32_t> comp{};
-  const ssize_t idx = utils::find(std::span<const uint32_t>{order_books.ids}, orderbook_id, comp);
+  ssize_t idx = utils::find(std::span<const uint32_t>{order_books.ids}, orderbook_id, comp);
 
-  return order_books.books[idx];
+  const bool found = (idx != -1);
+  idx *= found;
+
+  OrderBook *book = &order_books.books[idx];
+  return reinterpret_cast<OrderBook *>(found * reinterpret_cast<uintptr_t>(book));
 }

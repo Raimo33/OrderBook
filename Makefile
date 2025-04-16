@@ -49,13 +49,14 @@ CXXFLAGS += -fno-plt -fuse-linker-plugin -flto
 
 CXXFLAGS += -I$(INCS_DIR)
 
-LDFLAGS = -static -static-libgcc -static-libstdc++
+LDFLAGS := -static -static-libgcc -static-libstdc++
+LDLIBS := -ljemalloc
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 $(TARGET): $(OBJS)
-	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS)
+	$(CXX) $(OBJS) -o $(TARGET) $(LDFLAGS) $(LDLIBS)
 
 clean:
 	rm -f $(OBJS) $(DEPS)

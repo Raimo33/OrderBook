@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 18:21:38                                                 
-last edited: 2025-04-06 22:29:03                                                
+last edited: 2025-04-16 17:40:46                                                
 
 ================================================================================*/
 
@@ -38,6 +38,9 @@ int main(int argc, char **argv)
     .rewind_port = "24003",
     .glimpse_ip = "10.18.146.3",
     .glimpse_port = "21815",
+    .book_ids = {
+      11001, 11002, 11003
+    },
     .username = argv[1],
     .password = argv[2]
   };

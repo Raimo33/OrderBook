@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-30 15:01:52                                                 
-last edited: 2025-04-05 14:48:44                                                
+last edited: 2025-04-16 17:40:46                                                
 
 ================================================================================*/
 
@@ -30,6 +30,8 @@ struct Config
 
   std::string glimpse_ip;
   std::string glimpse_port;
+
+  std::vector<uint32_t> book_ids;
 
   std::string username;
   std::string password;
