@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-05 10:36:57                                                 
-last edited: 2025-04-17 16:57:31                                                
+last edited: 2025-04-17 19:18:53                                                
 
 ================================================================================*/
 
@@ -35,17 +35,17 @@ HOT void MessageHandler::handleMessage(const MessageData &data)
   static constexpr std::array<Handler, size> handlers = []()
   {
     std::array<Handler, size> handlers{};
+    handlers['T'] = &MessageHandler::handleSeconds;
     handlers['A'] = &MessageHandler::handleNewOrder;
     handlers['D'] = &MessageHandler::handleDeletedOrder;
-    handlers['T'] = &MessageHandler::handleSeconds;
+    handlers['E'] = &MessageHandler::handleExecutionNotice;
+    handlers['C'] = &MessageHandler::handleExecutionNoticeWithTradeInfo;
+    handlers['Z'] = &MessageHandler::handleEquilibriumPrice;
     handlers['R'] = &MessageHandler::handleSeriesInfoBasic;
     handlers['M'] = &MessageHandler::handleSeriesInfoBasicCombination;
     handlers['L'] = &MessageHandler::handleTickSizeData;
     handlers['S'] = &MessageHandler::handleSystemEvent;
     handlers['O'] = &MessageHandler::handleTradingStatus;
-    handlers['E'] = &MessageHandler::handleExecutionNotice;
-    handlers['C'] = &MessageHandler::handleExecutionNoticeWithTradeInfo;
-    handlers['Z'] = &MessageHandler::handleEquilibriumPrice;
     return handlers;
   }();
 
@@ -55,7 +55,7 @@ HOT void MessageHandler::handleMessage(const MessageData &data)
 HOT void MessageHandler::handleNewOrder(const MessageData &data)
 {
   using Handler = void (MessageHandler::*)(const MessageData &);
-  static constexpr Handler handlers[2] = {
+  static constexpr Handler handlers[] = {
     &MessageHandler::handleNewLimitOrder,
     &MessageHandler::handleNewMarketOrder
   };
