@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-05 10:36:57                                                 
-last edited: 2025-04-17 16:05:19                                                
+last edited: 2025-04-17 16:06:49                                                
 
 ================================================================================*/
 
@@ -71,7 +71,7 @@ HOT void MessageHandler::handleDeletedOrder(const MessageData &data)
 {
   const uint32_t orderbook_id = utils::to_host(data.deleted_order.orderbook_id);
 
-  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) constexpr noexcept
+  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
     const auto &deleted_order = data.deleted_order;
 
@@ -88,7 +88,7 @@ HOT void MessageHandler::handleExecutionNotice(const MessageData &data)
 {
   const uint32_t orderbook_id = utils::to_host(data.execution_notice.orderbook_id);
 
-  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) constexpr noexcept
+  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
     const auto &execution = data.execution_notice;
 
@@ -106,7 +106,7 @@ HOT void MessageHandler::handleExecutionNoticeWithTradeInfo(const MessageData &d
 {
   const uint32_t orderbook_id = utils::to_host(data.execution_notice_with_trade_info.orderbook_id);
 
-  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) constexpr noexcept
+  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
     const auto &execution = data.execution_notice_with_trade_info;
 
@@ -125,7 +125,7 @@ void MessageHandler::handleEquilibriumPrice(const MessageData &data)
 {
   const uint32_t orderbook_id = utils::to_host(data.ep.orderbook_id);
 
-  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) constexpr noexcept
+  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
     const auto &ep = data.ep;
 
@@ -178,7 +178,7 @@ HOT void MessageHandler::handleNewLimitOrder(const MessageData &data)
 {
   const uint32_t orderbook_id = utils::to_host(data.new_order.orderbook_id);
 
-  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) constexpr noexcept
+  static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
     const auto &new_order = data.new_order;
 
@@ -203,7 +203,7 @@ HOT void MessageHandler::processOrderBookOperation(const uint32_t orderbook_id, 
   OrderBook *book = getOrderBook(orderbook_id);
   const uint8_t is_valid = !!book;
 
-  static constexpr OrderBookOp noOp = +[](OrderBook *, const MessageData &) constexpr noexcept {};
+  static constexpr OrderBookOp noOp = +[](OrderBook *, const MessageData &) noexcept {};
   static constexpr OrderBookOp handlers[] = {noOp, op};
   handlers[is_valid](book, data);
 }
