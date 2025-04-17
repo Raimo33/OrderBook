@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-06 18:55:50                                                 
-last edited: 2025-04-16 17:40:46                                                
+last edited: 2025-04-17 16:05:19                                                
 
 ================================================================================*/
 
@@ -45,6 +45,10 @@ class MessageHandler
     void handleNewLimitOrder(const MessageData &data);
     void handleNewMarketOrder(const MessageData &data);
 
+    using OrderBookOp = void (*)(OrderBook *book, const MessageData &data);
+    template <OrderBookOp op>
+    void processOrderBookOperation(const uint32_t orderbook_id, const MessageData &data);
+
     OrderBook *getOrderBook(const uint32_t orderbook_id) noexcept;
 
     struct OrderBooks
@@ -53,7 +57,7 @@ class MessageHandler
       std::vector<OrderBook> books;
     } order_books;
 
-    std::unordered_set<uint32_t> monitored_orderbooks;
+    std::unordered_set<uint32_t> orderbook_whitelist;
 };
 
 #include "MessageHandler.inl"
