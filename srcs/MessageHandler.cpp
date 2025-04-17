@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-05 10:36:57                                                 
-last edited: 2025-04-17 16:06:49                                                
+last edited: 2025-04-17 16:57:31                                                
 
 ================================================================================*/
 
@@ -54,31 +54,25 @@ HOT void MessageHandler::handleMessage(const MessageData &data)
 
 HOT void MessageHandler::handleNewOrder(const MessageData &data)
 {
-  const auto &new_order = data.new_order;
-  const int32_t price = utils::to_host(new_order.price);
-
   using Handler = void (MessageHandler::*)(const MessageData &);
   static constexpr Handler handlers[2] = {
     &MessageHandler::handleNewLimitOrder,
     &MessageHandler::handleNewMarketOrder
   };
 
-  const bool is_market = (price == INT32_MIN);
+  const bool is_market = (data.new_order.price == INT32_MIN);
   (this->*handlers[is_market])(data);
 }
 
 HOT void MessageHandler::handleDeletedOrder(const MessageData &data)
 {
-  const uint32_t orderbook_id = utils::to_host(data.deleted_order.orderbook_id);
+  const uint32_t orderbook_id = data.deleted_order.orderbook_id;
 
   static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
-    const auto &deleted_order = data.deleted_order;
-
-    const uint64_t order_id = utils::to_host(deleted_order.order_id);
-    const OrderBook::Side side = static_cast<OrderBook::Side>(deleted_order.side == 'S');
-
-    book->removeOrder(order_id, side);
+    const auto &m = data.deleted_order;
+    const OrderBook::Side side = static_cast<OrderBook::Side>(m.side == 'S');
+    book->removeOrder(m.order_id, side);
   };
 
   processOrderBookOperation<op>(orderbook_id, data);
@@ -86,17 +80,13 @@ HOT void MessageHandler::handleDeletedOrder(const MessageData &data)
 
 HOT void MessageHandler::handleExecutionNotice(const MessageData &data)
 {
-  const uint32_t orderbook_id = utils::to_host(data.execution_notice.orderbook_id);
+  const uint32_t orderbook_id = data.execution_notice.orderbook_id;
 
   static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
-    const auto &execution = data.execution_notice;
-
-    const uint64_t order_id = utils::to_host(execution.order_id);
-    const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution.side == 'S');
-    const uint64_t executed_quantity = utils::to_host(execution.executed_quantity);
-
-    book->executeOrder(order_id, resting_side, executed_quantity);
+    const auto &m = data.execution_notice;
+    const OrderBook::Side side = static_cast<OrderBook::Side>(m.side == 'S');
+    book->executeOrder(m.order_id, side, m.executed_quantity);
   };
 
   processOrderBookOperation<op>(orderbook_id, data);
@@ -104,18 +94,13 @@ HOT void MessageHandler::handleExecutionNotice(const MessageData &data)
 
 HOT void MessageHandler::handleExecutionNoticeWithTradeInfo(const MessageData &data)
 {
-  const uint32_t orderbook_id = utils::to_host(data.execution_notice_with_trade_info.orderbook_id);
+  const uint32_t orderbook_id = data.execution_notice_with_trade_info.orderbook_id;
 
   static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
-    const auto &execution = data.execution_notice_with_trade_info;
-
-    const uint64_t order_id = utils::to_host(execution.order_id);
-    const OrderBook::Side resting_side = static_cast<OrderBook::Side>(execution.side == 'S');
-    const uint32_t trade_price = utils::to_host(execution.trade_price);
-    const uint64_t executed_quantity = utils::to_host(execution.executed_quantity);
-
-    book->removeOrder(order_id, resting_side, trade_price, executed_quantity);
+    const auto &m = data.execution_notice_with_trade_info;
+    const OrderBook::Side side = static_cast<OrderBook::Side>(m.side == 'S');
+    book->removeOrder(m.order_id, side, m.trade_price, m.executed_quantity);
   };
 
   processOrderBookOperation<op>(orderbook_id, data);
@@ -123,17 +108,12 @@ HOT void MessageHandler::handleExecutionNoticeWithTradeInfo(const MessageData &d
 
 void MessageHandler::handleEquilibriumPrice(const MessageData &data)
 {
-  const uint32_t orderbook_id = utils::to_host(data.ep.orderbook_id);
+  const uint32_t orderbook_id = data.ep.orderbook_id;
 
   static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
-    const auto &ep = data.ep;
-
-    const uint32_t equilibrium_price = utils::to_host(ep.equilibrium_price);
-    const uint64_t bid_quantity = utils::to_host(ep.available_bid_quantity);
-    const uint64_t ask_quantity = utils::to_host(ep.available_ask_quantity);
-
-    book->setEquilibrium(equilibrium_price, bid_quantity, ask_quantity);
+    const auto &m = data.ep;
+    book->setEquilibrium(m.equilibrium_price, m.available_bid_quantity, m.available_ask_quantity);
   };
 
   processOrderBookOperation<op>(orderbook_id, data);
@@ -145,8 +125,7 @@ HOT void MessageHandler::handleSeconds(UNUSED const MessageData &data)
 
 COLD void MessageHandler::handleSeriesInfoBasic(const MessageData &data)
 {
-  const auto &series_info_basic = data.series_info_basic;
-  const uint32_t orderbook_id = utils::to_host(series_info_basic.orderbook_id);
+  const uint32_t orderbook_id = data.series_info_basic.orderbook_id;
 
   if (orderbook_whitelist.contains(orderbook_id) == false)
     return;
@@ -176,18 +155,13 @@ COLD void MessageHandler::handleTradingStatus(UNUSED const MessageData &data)
 
 HOT void MessageHandler::handleNewLimitOrder(const MessageData &data)
 {
-  const uint32_t orderbook_id = utils::to_host(data.new_order.orderbook_id);
+  const uint32_t orderbook_id = data.new_order.orderbook_id;
 
   static constexpr OrderBookOp op = +[](OrderBook *book, const MessageData &data) noexcept
   {
-    const auto &new_order = data.new_order;
-
-    const uint64_t order_id = utils::to_host(new_order.order_id);
-    const OrderBook::Side side = static_cast<OrderBook::Side>(new_order.side == 'S');
-    const int32_t price = utils::to_host(new_order.price);
-    const uint64_t quantity = utils::to_host(new_order.quantity);
-
-    book->addOrder(order_id, side, price, quantity);
+    const auto &m = data.new_order;
+    const OrderBook::Side side = static_cast<OrderBook::Side>(m.side == 'S');
+    book->addOrder(m.order_id, side, m.price, m.quantity);
   };
 
   processOrderBookOperation<op>(orderbook_id, data);

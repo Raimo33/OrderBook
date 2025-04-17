@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-16 17:40:46                                                
+last edited: 2025-04-17 16:57:31                                                
 
 ================================================================================*/
 
@@ -62,7 +62,7 @@ COLD sockaddr_in Client::createAddress(const std::string_view ip_str, const std:
 
   inet_pton(AF_INET, ip, &address.sin_addr);
   address.sin_family = AF_INET;
-  address.sin_port = utils::to_network(port);
+  address.sin_port = htons(port);
 
   return address;
 }
@@ -156,7 +156,7 @@ COLD void Client::syncSequences(void)
   while (sequence_number < this->sequence_number - 1)
   {
     recvmsg(udp_sock_fd, &msg, MSG_WAITFORONE);
-    sequence_number = utils::to_host(packet.header.sequence_number);
+    sequence_number = packet.header.sequence_number;
   }
 }
 
@@ -190,15 +190,14 @@ HOT void Client::updateOrderbooks(void)
     while(packets_count--)
     {
       PREFETCH_R(packet + 1, 1);
-      const uint64_t sequence_number = utils::to_host(packet->header.sequence_number);
-      const uint16_t message_count = utils::to_host(packet->header.message_count);
+      const uint16_t message_count = packet->header.message_count;
 
-      error |= (sequence_number != this->sequence_number);
+      error |= (packet->header.sequence_number != sequence_number);
       CHECK_ERROR;
 
       processMessageBlocks(packet->payload, message_count);
 
-      this->sequence_number += message_count;
+      sequence_number += message_count;
       packet++;
     }
   }
@@ -213,7 +212,7 @@ COLD void Client::sendLogin(void) const
   static constexpr uint16_t body_length = sizeof(body.type) + sizeof(body.login_request);
   static constexpr uint16_t packet_size = sizeof(packet.body_length) + body_length;
 
-  packet.body_length = utils::to_network(body_length);
+  packet.body_length = body_length;
 
   body.type = 'L';
   std::memset(&body.login_request, ' ', sizeof(body.login_request));
@@ -230,8 +229,7 @@ COLD void Client::recvLogin(void)
   SoupBinTCPPacket packet;
 
   error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), MSG_WAITALL) == -1;
-  const uint16_t body_length = utils::to_host(packet.body_length);
-  error |= recv(tcp_sock_fd, &packet.body, body_length, MSG_WAITALL) == -1;
+  error |= recv(tcp_sock_fd, &packet.body, packet.body_length, MSG_WAITALL) == -1;
 
   CHECK_ERROR;
 
@@ -259,8 +257,7 @@ COLD void Client::recvSnapshot(void)
   SoupBinTCPPacket &packet = *reinterpret_cast<SoupBinTCPPacket *>(buffer.data());
 
   error |= recv(tcp_sock_fd, &packet, sizeof(packet.body_length), MSG_WAITALL) == -1;
-  const uint16_t body_length = utils::to_host(packet.body_length);
-  error |= recv(tcp_sock_fd, &packet.body, body_length, MSG_WAITALL) == -1;
+  error |= recv(tcp_sock_fd, &packet.body, packet.body_length, MSG_WAITALL) == -1;
 
   CHECK_ERROR;
 
@@ -272,8 +269,7 @@ COLD void Client::recvSnapshot(void)
     case 'S':
     {
       const char *const payload = reinterpret_cast<const char *>(&packet.body.sequenced_data);
-      const uint16_t body_length = utils::to_host(packet.body_length);
-      processSnapshots(payload, body_length - sizeof(packet.body.type));
+      processSnapshots(payload, packet.body_length - sizeof(packet.body.type));
       break;
     }
     default:
@@ -284,7 +280,7 @@ COLD void Client::recvSnapshot(void)
 COLD void Client::sendLogout(void) const
 {
   SoupBinTCPPacket packet;
-  packet.body_length = utils::to_network(sizeof(packet.body.type));
+  packet.body_length = sizeof(packet.body.type);
   packet.body.type = 'Z';
 
   static constexpr uint16_t packet_size = sizeof(packet.body_length) + sizeof(packet.body.type);
@@ -337,7 +333,7 @@ HOT void Client::processMessageBlocks(const char *restrict buffer, uint16_t bloc
   while (blocks_count--)
   {
     const MessageBlock &block = *reinterpret_cast<const MessageBlock *>(buffer);
-    const uint16_t length = sizeof(block.length) + utils::to_host(block.length);
+    const uint16_t length = sizeof(block.length) + block.length;
 
     PREFETCH_R(buffer + length, 1);
     message_handler.handleMessage(block.data);

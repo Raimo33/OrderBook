@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-16 19:38:28                                                
+last edited: 2025-04-17 16:57:31                                                
 
 ================================================================================*/
 
@@ -14,10 +14,8 @@ last edited: 2025-04-16 19:38:28
 #include <cstdint>
 #include <span>
 #include <ranges>
-#include <memory>
 #include <array>
 #include <immintrin.h>
-#include <bit>
 
 #include "utils.hpp"
 #include "macros.hpp"
@@ -224,26 +222,6 @@ HOT ssize_t backward_lower_bound(std::span<const T> data, const T elem, const Co
   }
 
   return found ? it - begin : -1;
-}
-
-constexpr bool needs_byte_swap = (std::endian::native == std::endian::little);
-
-template <typename T>
-HOT PURE ALWAYS_INLINE inline T to_host(const T &value) noexcept
-{
-  if constexpr (needs_byte_swap)
-    return std::byteswap(value);
-  else
-    return value;
-}
-
-template <typename T>
-HOT PURE ALWAYS_INLINE inline T to_network(const T &value) noexcept
-{
-  if constexpr (needs_byte_swap)
-    return std::byteswap(value);
-  else
-    return value;
 }
 
 }
