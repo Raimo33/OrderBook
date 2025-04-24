@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-24 12:40:43                                                
+last edited: 2025-04-24 13:13:44                                                
 
 ================================================================================*/
 
@@ -29,7 +29,7 @@ HOT ssize_t forward_lower_bound(std::span<const T> data, const T elem, const Com
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
 
-  constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
+  static constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
   const T *begin = data.data();
   const size_t size = data.size();
   size_t remaining = size;
@@ -139,7 +139,7 @@ HOT ssize_t backward_lower_bound(std::span<const T> data, const T elem, const Co
   static_assert(std::is_integral<T>::value, "T must be an integral type");
   static_assert(std::hardware_constructive_interference_size == 64, "Cache line size must be 64 bytes");
 
-  constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
+  static constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
   const T *begin = data.data();
   size_t remaining = data.size();
   const T *it = begin + remaining - 1;
