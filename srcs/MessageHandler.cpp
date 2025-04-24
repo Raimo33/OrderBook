@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-05 10:36:57                                                 
-last edited: 2025-04-17 19:18:53                                                
+last edited: 2025-04-24 11:35:45                                                
 
 ================================================================================*/
 
@@ -75,6 +75,8 @@ HOT void MessageHandler::handleDeletedOrder(const MessageData &data)
     book->removeOrder(m.order_id, side);
   };
 
+  printf("deleting order\n");
+
   processOrderBookOperation<op>(orderbook_id, data);
 }
 
@@ -88,6 +90,8 @@ HOT void MessageHandler::handleExecutionNotice(const MessageData &data)
     const OrderBook::Side side = static_cast<OrderBook::Side>(m.side == 'S');
     book->executeOrder(m.order_id, side, m.executed_quantity);
   };
+
+  printf("executing order\n");
 
   processOrderBookOperation<op>(orderbook_id, data);
 }
@@ -103,6 +107,8 @@ HOT void MessageHandler::handleExecutionNoticeWithTradeInfo(const MessageData &d
     book->removeOrder(m.order_id, side, m.trade_price, m.executed_quantity);
   };
 
+  printf("executing order with trade info\n");
+
   processOrderBookOperation<op>(orderbook_id, data);
 }
 
@@ -115,6 +121,8 @@ void MessageHandler::handleEquilibriumPrice(const MessageData &data)
     const auto &m = data.ep;
     book->setEquilibrium(m.equilibrium_price, m.available_bid_quantity, m.available_ask_quantity);
   };
+
+  printf("setting equilibrium price\n");
 
   processOrderBookOperation<op>(orderbook_id, data);
 }
@@ -129,6 +137,8 @@ COLD void MessageHandler::handleSeriesInfoBasic(const MessageData &data)
 
   if (orderbook_whitelist.contains(orderbook_id) == false)
     return;
+
+  printf("adding orderbook with id: %u\n", orderbook_id);
 
   order_books.ids.push_back(orderbook_id);
   order_books.books.emplace_back();
@@ -163,6 +173,8 @@ HOT void MessageHandler::handleNewLimitOrder(const MessageData &data)
     const OrderBook::Side side = static_cast<OrderBook::Side>(m.side == 'S');
     book->addOrder(m.order_id, side, m.price, m.quantity);
   };
+
+  printf("adding order\n");
 
   processOrderBookOperation<op>(orderbook_id, data);
 }
