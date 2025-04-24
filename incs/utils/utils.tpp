@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-04-03 20:16:29                                                 
-last edited: 2025-04-17 16:57:31                                                
+last edited: 2025-04-24 12:40:43                                                
 
 ================================================================================*/
 
@@ -45,16 +45,18 @@ HOT ssize_t forward_lower_bound(std::span<const T> data, const T elem, const Com
   misalignment = (misalignment > remaining) ? remaining : misalignment;
 
   keep_looking = (misalignment > 0);
+
   while (keep_looking)
   {
-    ++it;
+    found = comp(*it, elem);
+
     --misalignment;
     --remaining;
 
-    found = comp(*it, elem);
+    keep_looking = (misalignment > 0);
+    keep_looking &= !found;
 
-    keep_looking = !found;
-    keep_looking &= (misalignment > 0);
+    it += keep_looking;
   }
 
 #ifdef __AVX512F__
@@ -66,7 +68,9 @@ HOT ssize_t forward_lower_bound(std::span<const T> data, const T elem, const Com
   std::array<__m512i, UNROLL_FACTOR> chunks;
   std::array<__mmask64, UNROLL_FACTOR> masks;
 
-  keep_looking &= (remaining >= combined_chunks_size);
+  keep_looking = (remaining >= combined_chunks_size);
+  keep_looking &= !found;
+
   while (keep_looking)
   {
     it = std::assume_aligned<64>(it);
@@ -79,9 +83,10 @@ HOT ssize_t forward_lower_bound(std::span<const T> data, const T elem, const Com
     remaining -= combined_chunks_size;
     keep_looking = (remaining >= combined_chunks_size);
 
+    const uint8_t safe_chunk_size = chunk_size * keep_looking; 
     #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
-      PREFETCH_R(it + i * chunk_size * keep_looking, 0);
+      PREFETCH_R(it + i * safe_chunk_size, 0);
 
     #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
@@ -110,16 +115,19 @@ HOT ssize_t forward_lower_bound(std::span<const T> data, const T elem, const Com
   }
 #endif
 
-  keep_looking &= (remaining > 0);
+  keep_looking = (remaining > 0);
+  keep_looking &= !found;
+
   while (keep_looking)
   {
-    ++it;
-    --remaining;
-
     found = comp(*it, elem);
 
-    keep_looking = !found;
-    keep_looking &= (remaining > 0);
+    --remaining;
+
+    keep_looking = (remaining > 0);
+    keep_looking &= !found;
+
+    it += keep_looking;
   }
 
   return found ? it - begin : -1;
@@ -134,7 +142,7 @@ HOT ssize_t backward_lower_bound(std::span<const T> data, const T elem, const Co
   constexpr uint8_t chunk_size = sizeof(__m512i) / sizeof(T);
   const T *begin = data.data();
   size_t remaining = data.size();
-  const T *it = begin + remaining;
+  const T *it = begin + remaining - 1;
   bool keep_looking;
   bool found = false;
 
@@ -146,16 +154,18 @@ HOT ssize_t backward_lower_bound(std::span<const T> data, const T elem, const Co
   misalignment = (misalignment > remaining) ? remaining : misalignment;
 
   keep_looking = (misalignment > 0);
+
   while (keep_looking)
   {
-    --it;
+    found = comp(*it, elem);
+
     --misalignment;
     --remaining;
 
-    found = comp(*it, elem);
+    keep_looking = (misalignment > 0);
+    keep_looking &= !found;
 
-    keep_looking = !found;
-    keep_looking &= (misalignment > 0);
+    it -= keep_looking;
   }
 
 #ifdef __AVX512F__
@@ -167,7 +177,9 @@ HOT ssize_t backward_lower_bound(std::span<const T> data, const T elem, const Co
   std::array<__m512i, UNROLL_FACTOR> chunks;
   std::array<__mmask64, UNROLL_FACTOR> masks;
 
-  keep_looking &= (remaining >= combined_chunks_size);
+  keep_looking = (remaining >= combined_chunks_size);
+  keep_looking &= !found;
+
   while (keep_looking)
   {
     #pragma GCC unroll UNROLL_FACTOR
@@ -178,9 +190,10 @@ HOT ssize_t backward_lower_bound(std::span<const T> data, const T elem, const Co
     remaining -= combined_chunks_size;
     keep_looking = (remaining >= combined_chunks_size);
 
+    const uint8_t safe_chunk_size = chunk_size * keep_looking;
     #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
-      PREFETCH_R(it - i * chunk_size * keep_looking, 0);
+      PREFETCH_R(it - i * safe_chunk_size, 0);
 
     #pragma GCC unroll UNROLL_FACTOR
     for (uint8_t i = 0; i < UNROLL_FACTOR; ++i)
@@ -209,16 +222,19 @@ HOT ssize_t backward_lower_bound(std::span<const T> data, const T elem, const Co
   }
 #endif
 
-  keep_looking &= (remaining > 0);
+  keep_looking = (remaining > 0);
+  keep_looking &= !found;
+
   while (keep_looking)
   {
-    --it;
-    --remaining;
-
     found = comp(*it, elem);
 
-    keep_looking = !found;
-    keep_looking &= (remaining > 0);
+    --remaining;
+
+    keep_looking = (remaining > 0);
+    keep_looking &= !found;
+
+    it -= keep_looking;
   }
 
   return found ? it - begin : -1;

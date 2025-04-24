@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-07 21:17:51                                                 
-last edited: 2025-04-16 19:38:28                                                
+last edited: 2025-04-24 12:40:43                                                
 
 ================================================================================*/
 
@@ -127,7 +127,7 @@ HOT void OrderBook::addOrder(PriceLevels &levels, const uint64_t id, const int32
   const auto &prices = levels.prices;
 
   static constexpr Comparator cmp;
-  ssize_t price_idx = utils::backward_lower_bound(std::span<const int32_t>{prices}, price, cmp);
+  const size_t price_idx = utils::backward_lower_bound(std::span<const int32_t>{prices}, price, cmp);
 
   using Handler = void (OrderBook::*)(PriceLevels &, const size_t, const int32_t, const uint64_t, const uint64_t);
   static constexpr Handler handlers[] = {
