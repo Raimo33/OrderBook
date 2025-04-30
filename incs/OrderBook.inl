@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-23 17:58:46                                                 
-last edited: 2025-04-14 19:50:33                                                
+last edited: 2025-04-30 15:40:07                                                
 
 ================================================================================*/
 
@@ -17,24 +17,39 @@ last edited: 2025-04-14 19:50:33
 
 extern volatile bool error;
 
-HOT PURE inline OrderBook::BookEntry OrderBook::getBestBid(void) const noexcept
+HOT ALWAYS_INLINE inline int32_t OrderBook::getBestBidPrice(void) const noexcept
 {
-  return {book_sides[BID].prices.back(), book_sides[BID].cumulative_qtys.back()};
+  return book_sides[BID].prices.back();
 }
 
-HOT PURE inline OrderBook::BookEntry OrderBook::getBestAsk(void) const noexcept
+HOT ALWAYS_INLINE inline int32_t OrderBook::getBestAskPrice(void) const noexcept
 {
-  return {book_sides[ASK].prices.back(), book_sides[ASK].cumulative_qtys.back()};
+  return book_sides[ASK].prices.back();
 }
 
-HOT PURE inline OrderBook::BookEntry OrderBook::getEquilibriumPriceBid(void) const noexcept
+HOT ALWAYS_INLINE inline uint64_t OrderBook::getBestBidQty(void) const noexcept
 {
-  return {equilibrium_price, equilibrium_bid_qty};
+  return book_sides[BID].cumulative_qtys.back();
 }
 
-PURE inline OrderBook::BookEntry OrderBook::getEquilibriumPriceAsk(void) const noexcept
+HOT ALWAYS_INLINE inline uint64_t OrderBook::getBestAskQty(void) const noexcept
 {
-  return {equilibrium_price, equilibrium_ask_qty};
+  return book_sides[ASK].cumulative_qtys.back();
+}
+
+HOT ALWAYS_INLINE inline int32_t OrderBook::getEquilibriumPrice(void) const noexcept
+{
+  return equilibrium_price;
+}
+
+HOT ALWAYS_INLINE inline uint64_t OrderBook::getEquilibriumBidQty(void) const noexcept
+{
+  return equilibrium_bid_qty;
+}
+
+HOT ALWAYS_INLINE inline uint64_t OrderBook::getEquilibriumAskQty(void) const noexcept
+{
+  return equilibrium_ask_qty;
 }
 
 inline void OrderBook::setEquilibrium(const int32_t price, const uint64_t bid_qty, const uint64_t ask_qty) noexcept

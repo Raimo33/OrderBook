@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-22 14:14:57                                                 
-last edited: 2025-04-14 19:50:33                                                
+last edited: 2025-04-30 15:40:07                                                
 
 ================================================================================*/
 
@@ -26,16 +26,13 @@ class OrderBook
 
     enum Side : uint8_t { BID = 0, ASK = 1 };
 
-    typedef struct 
-    {
-      int32_t price;
-      uint64_t qty;
-    } BookEntry;
-
-    inline BookEntry getBestBid(void) const noexcept;
-    inline BookEntry getBestAsk(void) const noexcept;
-    inline BookEntry getEquilibriumPriceBid(void) const noexcept;
-    inline BookEntry getEquilibriumPriceAsk(void) const noexcept;
+    inline int32_t getBestBidPrice(void) const noexcept;
+    inline int32_t getBestAskPrice(void) const noexcept;
+    inline uint64_t getBestBidQty(void) const noexcept;
+    inline uint64_t getBestAskQty(void) const noexcept;
+    inline int32_t getEquilibriumPrice(void) const noexcept;
+    inline uint64_t getEquilibriumBidQty(void) const noexcept;
+    inline uint64_t getEquilibriumAskQty(void) const noexcept;
 
     void addOrder(const uint64_t id, const Side side, const int32_t price, const uint64_t qty);
     void removeOrder(const uint64_t id, const Side side);
