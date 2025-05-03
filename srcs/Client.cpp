@@ -5,7 +5,7 @@ Creator: Claudio Raimondi
 Email: claudio.raimondi@pm.me                                                   
 
 created at: 2025-03-08 15:48:16                                                 
-last edited: 2025-04-17 16:57:31                                                
+last edited: 2025-05-03 19:03:11                                                
 
 ================================================================================*/
 
@@ -165,9 +165,9 @@ HOT void Client::updateOrderbooks(void)
   static constexpr uint16_t MAX_MSG_SIZE = MTU - sizeof(MoldUDP64Header);
 
   //+1 added for safe prefetching past the last packet 
-  alignas(64) mmsghdr mmsgs[MAX_BURST_PACKETS+1];
-  alignas(64) iovec iov[2][MAX_BURST_PACKETS+1];
-  alignas(64) struct Packet {
+  alignas(CACHELINE_SIZE) mmsghdr mmsgs[MAX_BURST_PACKETS+1];
+  alignas(CACHELINE_SIZE) iovec iov[2][MAX_BURST_PACKETS+1];
+  alignas(CACHELINE_SIZE) struct Packet {
     MoldUDP64Header header;
     char payload[MAX_MSG_SIZE];
   } packets[MAX_BURST_PACKETS+1]{};
@@ -185,7 +185,7 @@ HOT void Client::updateOrderbooks(void)
   {
     int8_t packets_count = recvmmsg(udp_sock_fd, mmsgs, MAX_BURST_PACKETS, MSG_WAITFORONE, nullptr);
     error |= packets_count == -1;
-    const Packet *packet = std::assume_aligned<64>(packets);
+    const Packet *packet = std::assume_aligned<CACHELINE_SIZE>(packets);
 
     while(packets_count--)
     {
